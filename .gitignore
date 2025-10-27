@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# Poetry
+/dist
+wheels/
+
+# IDE
+.idea/
+
+# Ruff
+.ruff_cache/
