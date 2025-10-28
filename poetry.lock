@@ -31,6 +31,18 @@ wcwidth = "*"
 tests = ["pytest", "pytest-cov", "pytest-lazy-fixtures"]
 
 [[package]]
+name = "prompt"
+version = "0.4.1"
+description = "Library for prompting input on the command line."
+optional = false
+python-versions = ">=3.3"
+groups = ["main"]
+files = [
+    {file = "prompt-0.4.1-py3-none-any.whl", hash = "sha256:98527de8dc3f0aa29669a39fbffeaf578ba6654dc836f737b6a5c6f9279002b7"},
+    {file = "prompt-0.4.1.tar.gz", hash = "sha256:8a7694b88f8c65188a983315e72582bf42fcc251b97042be1d2a2ad1aa0ebe0e"},
+]
+
+[[package]]
 name = "ruff"
 version = "0.14.2"
 description = "An extremely fast Python linter and code formatter, written in Rust."
@@ -74,4 +86,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "dd242232a1d5a2396479e3c449f1d7d4274f147692e4c46fe623b409ba69573c"
+content-hash = "5e73cec3523904b964323615b96eac1f0cfc4670b64ae357f272834374865e53"

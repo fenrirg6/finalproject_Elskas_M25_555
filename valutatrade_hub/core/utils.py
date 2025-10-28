@@ -3,7 +3,6 @@ import os
 import json
 from datetime import datetime
 
-# move to utils.py?
 DATA_PATH = os.path.join(os.getcwd(), "data")
 
 def convert_timestamp(timestamp):
@@ -39,6 +38,21 @@ def convert_timestamp(timestamp):
         raise ValueError(f"Не удалось распознать формат даты: {timestamp}")
     raise TypeError(f"Неподдерживаемый тип для timestamp: {type(timestamp)}")
 
+def load_json(file: str):
+    file_path = os.path.join(DATA_PATH, file + ".json")
+
+    if not os.path.exists(file_path):
+        return None # to change
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                return None # to change
+            return json.loads(content)
+    except json.decoder.JSONDecodeError:
+        return None # to change
+
 def save_to_json(obj):
     class_name = obj.__class__.__name__.lower()
     file_path = os.path.join(DATA_PATH, f"{class_name}s.json")
@@ -60,10 +74,38 @@ def save_to_json(obj):
 
     print(f"Успешно: сохранено в {file_path}")
 
-# сделать функцию save to json ЗДЕСЬ
-# нужно сохранять данные в соответствующий json в зависимости от КЛАССА
-# н, если класс user, то складывать в data/users.json
-# н, если класс wallet, то складывать в data/wallet.json
+def update_json(obj, identifier, key_field="_user_id"):
+    class_name = obj.__class__.__name__.lower()
+    file_path = os.path.join(DATA_PATH, f"{class_name}s.json")
+
+    # создаем директорию если ее нет
+    os.makedirs(DATA_PATH, exist_ok=True)
+
+    data = []
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:
+                    data = json.loads(content)
+        except json.decoder.JSONDecodeError:
+            print(f"Ошибка: файл поврежден.")
+
+    obj_dict = object_to_dict(obj)
+
+    found = False
+    for i, item in enumerate(data):
+        if item.get(key_field) == identifier:
+            data[i] = obj_dict
+            found = True
+            print(f"Успешно: обновлена запись {class_name} с {key_field} = {identifier}.")
+
+    if not found:
+        data.append(obj_dict)
+        print(f"Успешно: добавлена запись {class_name}.")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
 # функция для сериализации вложенных кастомных объектов (bug Portfolio -> Wallet)
 def object_to_dict(obj):
@@ -97,3 +139,10 @@ def generate_password_salt(): # случайная соль на 16 байт
 
 def hash_password(salt: str, password: str):
     return hashlib.sha256((salt + password).encode()).hexdigest()
+
+def get_next_user_id(users: list):
+    if not users:
+        return 1
+    else:
+        max_id = max(user["user_id"] for user in users)
+        return max_id + 1

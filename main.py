@@ -12,7 +12,7 @@ def main():
     new_portfolio = Portfolio(1, {"USD": new_wallet})
 
 
-    print("\n========== TESTIGN METHODS for user ==========\n")
+    print("\n========== TESTING METHODS for user ==========\n")
 
     # user 1
     print(f"new_user id: {new_user.user_id}")

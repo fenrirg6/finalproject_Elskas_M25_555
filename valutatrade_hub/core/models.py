@@ -1,7 +1,10 @@
-from .utils import generate_password_salt, save_to_json, convert_timestamp, hash_password
+from .utils import generate_password_salt, save_to_json, convert_timestamp, hash_password, update_json
 
 class User:
     def __init__(self, user_id: int, username: str, password: str, registration_date):
+        if len(password) < 4:
+            raise ValueError("Ошибка: пароль должен содержать от 4-х символов.")
+
         self._user_id = user_id
         self._username = username
         self._salt = generate_password_salt() # случайная соль на 16 байт
@@ -19,8 +22,10 @@ class User:
     def user_id(self, new_user_id):
         if not isinstance(new_user_id, int):
             raise ValueError("not int") # to change
+        old_user_id = self._user_id
         self._user_id = new_user_id
-        # save_to_json(self)
+
+        update_json(self, old_user_id, "user_id")
 
     @property
     def username(self):
@@ -34,19 +39,17 @@ class User:
             raise ValueError("empty str")
         self._username = new_username
         # save_to_json(self)
+        update_json(self, self._user_id, "user_id")
 
     @property # нужно ли?
-    # + setter?
     def salt(self):
         return self._salt
 
     @property # нужно ли? или просто pass?
-    # + setter?
     def hashed_password(self):
         return self._hashed_password
 
     @property
-    # + setter?
     def registration_date(self):
         return self._registration_date
 
@@ -58,8 +61,10 @@ class User:
         # изменяет пароль пользователя, с хешированием нового пароля.
         if len(new_password) < 4:
             raise ValueError("password must be at least 4 characters") # to change
+        self._salt = generate_password_salt()
         self._hashed_password = hash_password(self._salt, new_password)
         # save_to_json(self)
+        update_json(self, self._user_id, "user_id")
         return "Успешно: пароль изменен."
 
     def verify_password(self, password: str):
@@ -102,6 +107,14 @@ class Wallet:
     def get_balance_into(self):
         return f"Баланс: {self._balance}" # to change
 
+    # магические методы
+
+    def __repr__(self):
+        return f"currency_code: {self.currency_code}, balance: {self._balance}>"
+
+    def __str__(self):
+        return f"{self.currency_code}: {self._balance:,.2f}"
+
 class Portfolio:
     def __init__(self, user_id: int, wallets: dict[str, Wallet]):
         self._user_id = user_id
@@ -127,7 +140,7 @@ class Portfolio:
             new_wallet = Wallet(currency_code, 0.0)
             self._wallets[currency_code] = new_wallet
             print(f"Added {currency_code} to Portfolio") # to change
-
+            update_json(self, self._user_id, "user_id")
             return new_wallet
 
     def get_total_value(self, base_currency="USD"):
