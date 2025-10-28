@@ -1,48 +1,15 @@
-from .utils import generate_password_salt, USERS_JSON_PATH
+from .utils import generate_password_salt, save_to_json, convert_timestamp, hash_password
 
-import hashlib
-import os
-import json
-
-
-class Users:
+class User:
     def __init__(self, user_id: int, username: str, password: str, registration_date):
-        # hash from def_pass (via func), salt as func?, reg date as datetime
         self._user_id = user_id
         self._username = username
         self._salt = generate_password_salt() # случайная соль на 16 байт
-        self._hashed_password = hashlib.sha256((self._salt + password).encode()).hexdigest() # тоже в utils.py?
-        self._registration_date = registration_date
+        self._hashed_password = hash_password(self._salt, password)
+        self._registration_date = convert_timestamp(registration_date)
 
         # автоматическое сохранение экземпляра в JSON
-        self._save_to_json()
-
-    def _save_to_json(self): # перенести в utils.py
-        file_path = USERS_JSON_PATH
-
-        # создаем директорию если ее нет
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
-        if os.path.exists(file_path):
-            with open(file_path, "r", encoding="utf-8") as f:
-                users = json.load(f)
-        else:
-            users = []
-
-        user_data_to_append = {
-            "user_id": self._user_id,
-            "username": self._username,
-            "salt": self._salt,
-            "hashed_password": self._hashed_password,
-            "registration_date": self._registration_date
-        }
-
-        users.append(user_data_to_append)
-
-        # сохраняем
-
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(users, f, indent=4, ensure_ascii=False)
+        save_to_json(self)
 
     @property
     def user_id(self):
@@ -53,6 +20,7 @@ class Users:
         if not isinstance(new_user_id, int):
             raise ValueError("not int") # to change
         self._user_id = new_user_id
+        # save_to_json(self)
 
     @property
     def username(self):
@@ -65,6 +33,7 @@ class Users:
         if new_username.strip() == "":
             raise ValueError("empty str")
         self._username = new_username
+        # save_to_json(self)
 
     @property # нужно ли?
     # + setter?
@@ -88,25 +57,23 @@ class Users:
     def change_password(self, new_password: str):
         # изменяет пароль пользователя, с хешированием нового пароля.
         if len(new_password) < 4:
-            raise ValueError("password must be at least 4 characters")
-        self._hashed_password = hashlib.sha256((self._salt + new_password).encode()).hexdigest()
+            raise ValueError("password must be at least 4 characters") # to change
+        self._hashed_password = hash_password(self._salt, new_password)
+        # save_to_json(self)
         return "Успешно: пароль изменен."
 
     def verify_password(self, password: str):
         # проверяет введённый пароль на совпадение
-        inputted_hashed_password = hashlib.sha256((self._salt + password).encode()).hexdigest()
+        inputted_hashed_password = hash_password(self._salt, password)
         return inputted_hashed_password == self._hashed_password
 
 class Wallet:
     def __init__(self, currency_code, balance):
         self.currency_code = currency_code
-        self._balance = balance
+        self._balance = balance # по умолчанию 0.0 - to change?
 
-
-    def _save_to_json(self):
-        pass
-        # to change - нужно имплементировать в составе wallet
-
+        # автоматическое сохранение экземпляра в JSON
+        save_to_json(self)
 
     @property
     def balance(self):
@@ -114,7 +81,7 @@ class Wallet:
 
     @balance.setter
     def balance(self, new_balance):
-        if not isinstance(new_balance, int):
+        if not isinstance(new_balance, float):
             raise TypeError("Wrong data type") # to change
         if new_balance < 0:
             raise ValueError("Balance cannot be negative") # to change
@@ -122,14 +89,14 @@ class Wallet:
 
     def deposit(self, amount: float):
         if amount < 0:
-            raise ValueError("Amount cannot be negative")
+            raise ValueError("Amount cannot be negative")  # to change
         self._balance += amount
 
     def withdraw(self, amount: float):
         if amount > self._balance:
-            raise ValueError("Not enough balance")
+            raise ValueError("Not enough balance") # to change
         if amount < 0:
-            raise ValueError("Amount cannot be negative")
+            raise ValueError("Amount cannot be negative") # to change
         self._balance -= amount
 
     def get_balance_into(self):
@@ -140,7 +107,39 @@ class Portfolio:
         self._user_id = user_id
         self._wallets = wallets
 
-    def add_wallet(self, wallet: Wallet):
-        if self._wallets[self._user_id] in self._wallets:
-            raise ValueError("Wallet already exists")
-        self._wallets[self._user_id] = wallet
+        # автоматическое сохранение экземпляра в JSON
+        save_to_json(self)
+
+    @property
+    def user_id(self):
+        return self._user_id # to change
+
+    @property
+    def wallets(self):
+        return self._wallets.copy() # to change
+
+    def add_currency(self, currency_code:str):
+        currency_code = currency_code.upper()
+
+        if currency_code in self._wallets:
+            raise ValueError(f"Currency code {currency_code} already exists") # to change
+        else:
+            new_wallet = Wallet(currency_code, 0.0)
+            self._wallets[currency_code] = new_wallet
+            print(f"Added {currency_code} to Portfolio") # to change
+
+            return new_wallet
+
+    def get_total_value(self, base_currency="USD"):
+        # возвращает общую стоимость всех валют пользователя в указанной базовой валюте
+        # (по курсам, полученным из API или фиктивным данным).
+        pass
+
+    def get_wallet(self, currency_code):
+        # возвращает объект Wallet по коду валюты.
+        currency_code = currency_code.upper()
+
+        if currency_code not in self._wallets:
+            raise ValueError(f"Currency code {currency_code} does not exist") # to change
+        else:
+            return self._wallets[currency_code]
