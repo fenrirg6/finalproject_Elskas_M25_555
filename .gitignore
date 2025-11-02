@@ -12,3 +12,6 @@ wheels/
 
 # Ruff
 .ruff_cache/
+
+#Project
+/data

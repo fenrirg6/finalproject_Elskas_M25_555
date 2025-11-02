@@ -2,147 +2,182 @@ import hashlib
 import os
 import json
 from datetime import datetime
+from pathlib import Path
 
-DATA_PATH = os.path.join(os.getcwd(), "data")
+# константы путей
+DATA_DIR = Path("data")
+USERS_FILE = DATA_DIR / "users.json"
+PORTFOLIOS_FILE = DATA_DIR / "portfolios.json"
+RATES_FILE = DATA_DIR / "rates.json"
 
-def convert_timestamp(timestamp):
-    # если уже datetime объект
-    if isinstance(timestamp, datetime):
-        return timestamp.strftime('%Y-%m-%d %H:%M:%S')
+def ensure_data_dir():
+    DATA_DIR.mkdir(exist_ok=True)
 
-    # если это числовой timestamp (Unix time)
-    if isinstance(timestamp, (int, float)):
-        return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+def load_json(file_path: Path, default=None):
 
-    # если это строка
-    if isinstance(timestamp, str):
-        # пробуем разные форматы
-        formats = [
-            '%Y-%m-%d',  # "2025-10-29"
-            '%Y-%m-%d %H:%M:%S',  # "2025-10-29 14:30:00"
-            '%d.%m.%Y',  # "29.10.2025"
-            '%d.%m.%Y %H:%M:%S',  # "29.10.2025 14:30:00"
-            '%d.%m.%Y %H:%M',  # "29.10.2025 14:30"
-            '%Y/%m/%d',  # "2025/10/29"
-            '%d-%m-%Y',  # "29-10-2025"
-        ]
-
-        for fmt in formats:
-            try:
-                dt = datetime.strptime(timestamp, fmt)
-                return dt.strftime('%Y-%m-%d %H:%M:%S')
-            except ValueError:
-                continue
-
-        # если ни один формат не подошёл
-        raise ValueError(f"Не удалось распознать формат даты: {timestamp}")
-    raise TypeError(f"Неподдерживаемый тип для timestamp: {type(timestamp)}")
-
-def load_json(file: str):
-    file_path = os.path.join(DATA_PATH, file + ".json")
-
-    if not os.path.exists(file_path):
-        return None # to change
+    if not file_path.exists():
+        return default if default is not None else []
 
     try:
         with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read().strip()
-            if not content:
-                return None # to change
-            return json.loads(content)
+            return json.load(f)
     except json.decoder.JSONDecodeError:
-        return None # to change
+        return default if default is not None else []
 
-def save_to_json(obj):
-    class_name = obj.__class__.__name__.lower()
-    file_path = os.path.join(DATA_PATH, f"{class_name}s.json")
+def save_json(file_path: Path, data):
+    ensure_data_dir()
 
-    # создаем директорию если ее нет
-    os.makedirs(DATA_PATH, exist_ok=True)
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        raise
 
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+def load_users():
+    return load_json(USERS_FILE, default=[])
+
+def save_users(users):
+    save_json(USERS_FILE, users)
+
+def load_portfolios():
+    return load_json(PORTFOLIOS_FILE, default=[])
+
+def save_portfolios(portfolios):
+    save_json(PORTFOLIOS_FILE, portfolios)
+
+def load_rates():
+    return load_json(RATES_FILE, default={})
+
+def save_rates(rates):
+    save_json(RATES_FILE, rates)
+
+def get_next_user_id():
+    users = load_users()
+    if not users:
+        return 1
     else:
-        data = []
+        return max(user["user_id"] for user in users) + 1
 
-    obj_dict = object_to_dict(obj)
-    data.append(obj_dict)
+def find_user_by_username(username):
+    users = load_users()
+    for user in users:
+        if user["username"] == username:
+            return user
+    return None
 
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+def find_user_by_id(user_id):
+    users = load_users()
+    for user in users:
+        if user["user_id"] == user_id:
+            return user
+    return None
 
-    print(f"Успешно: сохранено в {file_path}")
+def update_user(user_data):
+    users = load_users()
 
-def update_json(obj, identifier, key_field="_user_id"):
-    class_name = obj.__class__.__name__.lower()
-    file_path = os.path.join(DATA_PATH, f"{class_name}s.json")
+    for i, user in enumerate(users):
+        if user["user_id"] == user_data["user_id"]:
+            users[i] = user_data
+            break
+    else:
+        users.append(user_data)
 
-    # создаем директорию если ее нет
-    os.makedirs(DATA_PATH, exist_ok=True)
+    save_users(users)
 
-    data = []
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                if content:
-                    data = json.loads(content)
-        except json.decoder.JSONDecodeError:
-            print(f"Ошибка: файл поврежден.")
+def find_portfolio_by_user_id(user_id):
+    portfolios = load_portfolios()
+    for portfolio in portfolios:
+        if portfolio["user_id"] == user_id:
+            return portfolio
+    return None
 
-    obj_dict = object_to_dict(obj)
+def update_portfolio(portfolio_data):
 
-    found = False
-    for i, item in enumerate(data):
-        if item.get(key_field) == identifier:
-            data[i] = obj_dict
-            found = True
-            print(f"Успешно: обновлена запись {class_name} с {key_field} = {identifier}.")
+    portfolios = load_portfolios()
 
-    if not found:
-        data.append(obj_dict)
-        print(f"Успешно: добавлена запись {class_name}.")
+    for i, portfolio in enumerate(portfolios):
+        if portfolio["user_id"] == portfolio_data["user_id"]:
+            portfolios[i] = portfolio_data
+            break
+    else:
+        portfolios.append(portfolio_data)
 
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    save_portfolios(portfolios)
 
-# функция для сериализации вложенных кастомных объектов (bug Portfolio -> Wallet)
-def object_to_dict(obj):
-    if isinstance(obj, (str, int, float, bool, type(None))):
-        return obj
+def get_rate(from_currency: str, to_currency: str):
+    from_currency, to_currency = from_currency.upper().strip(), to_currency.upper().strip()
+    if from_currency == to_currency:
+        return 1.0
 
-    if isinstance(obj, (list, tuple)):
-        return [object_to_dict(item) for item in obj]
+    rates = load_rates()
+    rate_key = f"{from_currency}_{to_currency}"
+    if rate_key in rates:
+        return rates[rate_key].get("rate")
 
-    if isinstance(obj, datetime):
-        return obj.isoformat()
+    reverse_key = f"{to_currency}_{from_currency}"
+    if reverse_key in rates:
+        reverse_rate = rates[reverse_key].get("rate")
+        if reverse_rate and reverse_rate != 0:
+            return 1.0 / reverse_rate
 
-    if isinstance(obj, dict):
-        result = {}
-        for key, value in obj.items():
-            clean_key = key if isinstance(key, str) else str(key)
-            result[clean_key] = object_to_dict(value)
-        return result
+    return None
 
-    if hasattr(obj, "__dict__"):
-        result = {}
-        for key, value in obj.__dict__.items():
-            clean_key = key.lstrip("_")
-            result[clean_key] = object_to_dict(value)
-        return result
+def get_rate_info(from_currency: str, to_currency: str):
 
-    return str(obj)
+    from_currency = from_currency.upper()
+    to_currency = to_currency.upper()
+
+    if from_currency == to_currency:
+        return {
+            "rate": 1.0,
+            "updated_at": datetime.now().isoformat(),
+            "is_direct": True
+        }
+
+    rates = load_rates()
+    rate_key = f"{from_currency}_{to_currency}"
+
+    if rate_key in rates:
+        info = rates[rate_key].copy()
+        info["is_direct"] = True
+        return info
+
+    # обратный курс?
+    reverse_key = f"{to_currency}_{from_currency}"
+    if reverse_key in rates:
+        reverse_info = rates[reverse_key]
+        reverse_rate = reverse_info.get("rate")
+        if reverse_rate and reverse_rate != 0:
+            return {
+                "rate": 1.0 / reverse_rate,
+                "updated_at": reverse_info.get("updated_at"),
+                "is_direct": False
+            }
+
+    return None
+
+def update_rate(from_currency: str, to_currency: str, rate: float):
+
+    rates = load_rates()
+
+    rate_key = f"{from_currency.upper()}_{to_currency.upper()}"
+    rates[rate_key] = {
+        "rate": rate,
+        "updated_at": datetime.now().isoformat()
+    }
+    # перезаписываем время последнего обновления
+    rates["last_refresh"] = datetime.now().isoformat()
+
+    save_rates(rates)
+
+def format_number(value: float, decimals: int = 2):
+    return f"{value:,.{decimals}f}".replace(",", " ")
+
+def generate_timestamp():
+    return datetime.now().isoformat()
 
 def generate_password_salt(): # случайная соль на 16 байт
     return os.urandom(16).hex()
 
 def hash_password(salt: str, password: str):
     return hashlib.sha256((salt + password).encode()).hexdigest()
-
-def get_next_user_id(users: list):
-    if not users:
-        return 1
-    else:
-        max_id = max(user["user_id"] for user in users)
-        return max_id + 1

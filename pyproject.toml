@@ -8,10 +8,9 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "ruff (>=0.14.2,<0.15.0)",
-    "prettytable (>=3.16.0,<4.0.0)",
-    "pip (>=25.3,<26.0)",
-    "prompt (>=0.4.1,<0.5.0)"
+    "prettytable>=3.16.0,<4.0.0",
+    "pip>=25.3,<26.0",
+    "prompt>=0.4.1,<0.5.0"
 ]
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -23,7 +22,9 @@ packages = [
 ]
 
 [tool.poetry.scripts]
-project = "main:main"
+valutatrade = "valutatrade_hub.cli.interface:run_interactive"
+valutatrade-cli = "valutatrade_hub.cli.interface:run"
+valutatrade-repl = "valutatrade_hub.cli.interface:run_interactive"
 
 [tool.poetry.dependencies]
 python = "^3.10"
