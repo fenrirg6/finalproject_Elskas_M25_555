@@ -2,56 +2,64 @@ from datetime import datetime
 import sys
 sys.path.append('.')
 
-from valutatrade_hub.core.models import User, Wallet, Portfolio
+from valutatrade_hub.core.models import User, Portfolio
 from valutatrade_hub.core import utils
 
-class AuthenticationError(Exception):
-    pass
-
-class ValidationError(Exception):
-    pass
-
-class InsufficientFundsError(Exception):
-    pass
+from valutatrade_hub.core.exceptions import (
+    InsufficientFundsError,
+    CurrencyNotFoundError,
+    ApiRequestError,
+    AuthenticationError,
+    ValidationError
+)
+from valutatrade_hub.core.currencies import get_currency, get_supported_currencies
+from valutatrade_hub.infra.database import DatabaseManager
+from valutatrade_hub.infra.settings import SettingsLoader
+from valutatrade_hub.decorators import log_action
 
 # хранение текущей сессии
 _current_user = None
 _current_portfolio = None
 
+@log_action("REGISTER")
 def register_user(username, password):
     try:
         # валидация логина
         if not username or not username.strip():
-            return False, "Ошибка: имя пользователя не может быть пустым"
+            raise ValidationError("Ошибка: имя пользователя не может быть пустым")
 
         # валидация длины пароля
         if len(password) < 4:
-            return False, "Ошибка: пароль должен быть не короче 4 символов"
+            raise ValidationError("Ошибка: пароль должен быть не короче 4 символов")
+
+        db = DatabaseManager()
 
         # проверка уникальности логина
-        if utils.find_user_by_username(username):
-            return False, f"Ошибка: имя пользователя '{username}' уже занято"
+        if db.find_user_by_username(username):
+            raise ValidationError(f"Ошибка: имя пользователя {username} уже занято")
 
         # создание пользователя
-        user_id = utils.get_next_user_id()
+        user_id = db.get_next_user_id()
         user = User(user_id=user_id, username=username, password=password)
 
         # сохранение
-        utils.update_user(user.to_dict())
+        db.update_user(user.to_dict())
 
         # создание пустого портфеля
         portfolio = Portfolio(user_id=user_id)
-        utils.update_portfolio(portfolio.to_dict())
+        db.update_portfolio(portfolio.to_dict())
 
         return True, f"Успешно: пользователь '{username}' зарегистрирован (id={user_id}). Войдите: login --username <логин> --password <пароль>"
 
-    except Exception as e:
+    except (ValidationError, Exception) as e:
         return False, f"Ошибка регистрации: {str(e)}"
 
+@log_action("LOGIN")
 def login_user(username, password):
     global _current_user, _current_portfolio
 
     try:
+        db = DatabaseManager()
         # ищем пользователя
         user_data = utils.find_user_by_username(username)
         if not user_data:
@@ -65,13 +73,13 @@ def login_user(username, password):
             return False, "Ошибка: неверный пароль"
 
         # загружаем портфель
-        portfolio_data = utils.find_portfolio_by_user_id(user.user_id)
+        portfolio_data = db.find_portfolio_by_user_id(user.user_id)
         if portfolio_data:
             portfolio = Portfolio.from_dict(portfolio_data)
         else:
             # создаем портфель если он отсутствует (just in case)
             portfolio = Portfolio(user_id=user.user_id)
-            utils.update_portfolio(portfolio.to_dict())
+            db.update_portfolio(portfolio.to_dict())
 
         # сохранение в сессию
         _current_user = user
@@ -103,35 +111,35 @@ def require_authentication():
     if not is_authenticated():
         raise AuthenticationError("Ошибка: Сначала выполните login")
 
+
 def show_portfolio(base_currency: str = 'USD'):
+    """Показать портфель (без изменений, но с валидацией currency)"""
     try:
         require_authentication()
 
         base_currency = base_currency.upper()
+        get_currency(base_currency)  # Валидация
+
         portfolio = get_current_portfolio()
         user = get_current_user()
 
-        # получаем все кошельки
         wallets_dict = portfolio._wallets
 
         if not wallets_dict:
             return True, f"Портфель пользователя '{user.username}' пуст. Добавьте валюту командой buy."
 
-        # загружаем курсы - скорее всего понадобится в последующей реализации с АПИ
-        rates = utils.load_rates()
+        db = DatabaseManager()
 
-        # формируем вывод
         output = [f"Портфель пользователя '{user.username}' (база: {base_currency}):"]
         total_value = 0.0
 
         for currency_code, wallet in sorted(wallets_dict.items()):
             balance = wallet.balance
 
-            # конвертируем в базовую валюту
             if currency_code == base_currency:
                 value_in_base = balance
             else:
-                rate = utils.get_rate(currency_code, base_currency)
+                rate = db.get_rate(currency_code, base_currency)
                 if rate is None:
                     output.append(f"- {currency_code}: {balance:.4f}  → курс недоступен")
                     continue
@@ -139,62 +147,57 @@ def show_portfolio(base_currency: str = 'USD'):
 
             total_value += value_in_base
 
-            # форматирование вывода
-            if balance >= 1:
-                balance_str = f"{balance:.2f}"
-            else:
-                balance_str = f"{balance:.4f}"
-
-            value_str = utils.format_number(value_in_base, 2)
+            balance_str = f"{balance:.2f}" if balance >= 1 else f"{balance:.4f}"
+            value_str = f"{value_in_base:,.2f}".replace(",", " ")
             output.append(f"- {currency_code}: {balance_str}  → {value_str} {base_currency}")
 
         output.append("-" * 33)
-        output.append(f"ИТОГО: {utils.format_number(total_value, 2)} {base_currency}")
+        output.append(f"ИТОГО: {total_value:,.2f} {base_currency}".replace(",", " "))
 
         return True, "\n".join(output)
 
-    except AuthenticationError as e:
+    except (AuthenticationError, CurrencyNotFoundError) as e:
         return False, str(e)
     except Exception as e:
         return False, f"Ошибка отображения портфеля: {str(e)}"
 
-
-def buy_currency(currency_code, amount):
+@log_action("BUY")
+def buy_currency(currency_code: str, amount: float):
     try:
         require_authentication()
 
-        # валидация
+        if not currency_code or not isinstance(amount, (int, float)) or (amount <= 0):
+            raise ValidationError("Ошибка: 'amount' должен быть положительным числом")
+
+        # валидация через валюты
         currency_code = currency_code.upper().strip()
-
-        if not currency_code:
-            return False, "Ошибка: код валюты не может быть пустым"
-
-        if not isinstance(amount, (int, float)) or amount <= 0:
-            return False, "Ошибка: 'amount' должен быть положительным числом"
+        currency = get_currency(currency_code) # проброска CurrencyNotFoundError
 
         # чтобы нельзя было купить USD за USD (?)
         if currency_code == 'USD':
             return False, "Нельзя купить USD за USD. Используйте другую валюту."
 
+
+
         portfolio = get_current_portfolio()
+        db = DatabaseManager()
+        settings = SettingsLoader()
 
         # получаем курс покупаемой валюты к USD
-        rate = utils.get_rate(currency_code, 'USD')
-
+        rate = _get_rate_with_ttl(currency, "USD", db, settings)
         if not rate:
-            return False, f"Ошибка: не удалось получить курс для {currency_code} → USD. Повторите попытку позже."
+            raise ApiRequestError(f"Курс {currency_code} → USD недоступен")
 
         # рассчитываем стоимость в USD
         cost_in_usd = amount * rate
 
         # проверяем наличие USD кошелька и достаточность средств
-        usd_wallet = portfolio.get_wallet('USD')
-
+        usd_wallet = portfolio.get_wallet("USD")
         if usd_wallet.balance < cost_in_usd:
-            return False, (
-                f"Ошибка: недостаточно USD для покупки {amount:.4f} {currency_code}. "
-                f"Требуется: {utils.format_number(cost_in_usd, 2)} USD, "
-                f"доступно: {utils.format_number(usd_wallet.balance, 2)} USD"
+            return InsufficientFundsError(
+                available = usd_wallet.balance,
+                required = cost_in_usd,
+                currency_code = "USD"
             )
 
         # списываем USD
@@ -203,133 +206,174 @@ def buy_currency(currency_code, amount):
         # получаем или создаём кошелёк покупаемой валюты
         wallet = portfolio.get_wallet(currency_code)
         old_balance = wallet.balance
-
-        # пополняем баланс покупаемой валюты
         wallet.deposit(amount)
-        new_balance = wallet.balance
+
+        # new_balance = wallet.balance
 
         # сохраняем портфель
-        utils.update_portfolio(portfolio.to_dict())
+        db.update_portfolio(portfolio.to_dict())
 
         # формируем вывод
         output = []
         output.append(
-            f"Покупка выполнена: {amount:.4f} {currency_code} по курсу {utils.format_number(rate, 2)} USD/{currency_code}")
+            f"Покупка выполнена: {amount:.4f} {currency_code} {currency.get_display_info()}")
+        output.append(f"Курс: {rate:.4f} USD/{currency_code}")
         output.append("Изменения в портфеле:")
-        output.append(f"- {currency_code}: было {old_balance:.4f} → стало {new_balance:.4f}")
-        output.append(f"- USD: списано {utils.format_number(cost_in_usd, 2)} USD")
-        output.append(f"Стоимость покупки: {utils.format_number(cost_in_usd, 2)} USD")
+        output.append(f"- {currency_code}: было {old_balance:.4f} → стало {wallet.balance:.4f}")
+        output.append(f"- USD: списано {cost_in_usd:.4f} USD")
+        output.append(f"Стоимость покупки: {cost_in_usd:.4f} USD")
 
         return True, "\n".join(output)
 
-    except AuthenticationError as e:
+    except (AuthenticationError, CurrencyNotFoundError, ValidationError,
+            InsufficientFundsError, ApiRequestError) as e:
         return False, str(e)
     except Exception as e:
         return False, f"Ошибка покупки: {str(e)}"
 
-
+@log_action("SELL")
 def sell_currency(currency_code: str, amount: float):
+
     try:
         require_authentication()
 
         # валидация
-        currency_code = currency_code.upper().strip()
-
-        if not currency_code:
-            return False, "Ошибка: код валюты не может быть пустым"
-
         if not isinstance(amount, (int, float)) or amount <= 0:
-            return False, "Ошибка: 'amount' должен быть положительным числом"
+            raise ValidationError("'amount' должен быть положительным числом")
 
-        # чтобы нельзя было продать USD за USD (?)
+        currency_code = currency_code.upper().strip()
+        currency = get_currency(currency_code)  # пробрасываем CurrencyNotFoundError
+
         if currency_code == 'USD':
-            return False, "Нельзя продать USD за USD. Используйте другую валюту."
+            raise ValidationError("Нельзя продать USD за USD")
 
         portfolio = get_current_portfolio()
+        db = DatabaseManager()
+        settings = SettingsLoader()
 
         # проверяем наличие кошелька
         wallet = portfolio.get_wallet(currency_code)
         if not wallet:
-            return False, f"У вас нет кошелька '{currency_code}'. Добавьте валюту: она создаётся автоматически при первой покупке."
+            supported = ", ".join(get_supported_currencies())
+            raise ValidationError(
+                f"Ошибка: у вас нет кошелька '{currency_code}'. "
+                f"Поддерживаемые валюты: {supported}"
+            )
 
-        old_balance = wallet.balance
-
-        # проверяем достаточность средств
-        if wallet.balance < amount:
-            return False, f"Недостаточно средств: доступно {wallet.balance:.4f} {currency_code}, требуется {amount:.4f} {currency_code}"
-
-        # получаем курс продаваемой валюты к USD
-        rate = utils.get_rate(currency_code, 'USD')
-
+        # получаем курс
+        rate = _get_rate_with_ttl(currency_code, 'USD', db, settings)
         if not rate:
-            return False, f"Не удалось получить курс для {currency_code}→USD. Повторите попытку позже."
+            raise ApiRequestError(f"Курс {currency_code} → USD недоступен")
 
-        # рассчитываем выручку в USD
         revenue_in_usd = amount * rate
 
-        # снимаем средства с продаваемой валюты
+        # снимаем (бросает InsufficientFundsError)
+        old_balance = wallet.balance
         wallet.withdraw(amount)
-        new_balance = wallet.balance
 
         # начисляем USD
         usd_wallet = portfolio.get_wallet('USD')
-        old_usd_balance = usd_wallet.balance
+        old_usd = usd_wallet.balance
         usd_wallet.deposit(revenue_in_usd)
-        new_usd_balance = usd_wallet.balance
 
-        # сохраняем портфель
-        utils.update_portfolio(portfolio.to_dict())
+        # сохраняем
+        db.update_portfolio(portfolio.to_dict())
 
         # формируем вывод
         output = []
-        output.append(
-            f"Продажа выполнена: {amount:.4f} {currency_code} по курсу {utils.format_number(rate, 2)} USD/{currency_code}")
+        output.append(f"Продажа выполнена: {amount:.4f} {currency_code} ({currency.get_display_info()})")
+        output.append(f"Курс: {rate:.2f} USD/{currency_code}")
         output.append("Изменения в портфеле:")
-        output.append(f"- {currency_code}: было {old_balance:.4f} → стало {new_balance:.4f}")
-        output.append(
-            f"- USD: было {utils.format_number(old_usd_balance, 2)} → стало {utils.format_number(new_usd_balance, 2)} USD")
-        output.append(f"Выручка: {utils.format_number(revenue_in_usd, 2)} USD")
+        output.append(f"- {currency_code}: было {old_balance:.4f} → стало {wallet.balance:.4f}")
+        output.append(f"- USD: было {old_usd:.2f} → стало {usd_wallet.balance:.2f} USD")
+        output.append(f"Выручка: {revenue_in_usd:.2f} USD")
 
         return True, "\n".join(output)
 
-    except AuthenticationError as e:
+    except (AuthenticationError, CurrencyNotFoundError, ValidationError,
+            InsufficientFundsError, ApiRequestError) as e:
         return False, str(e)
     except Exception as e:
         return False, f"Ошибка продажи: {str(e)}"
 
 def get_exchange_rate(from_currency: str, to_currency: str):
-
     try:
         from_currency = from_currency.upper().strip()
         to_currency = to_currency.upper().strip()
 
-        if not from_currency or not to_currency:
-            return False, "Коды валют не могут быть пустыми"
+        # валидация через иерархию валют
+        from_curr = get_currency(from_currency)  # бросает CurrencyNotFoundError
+        to_curr = get_currency(to_currency)
 
-        # получаем информацию о курсе
-        rate_info = utils.get_rate_info(from_currency, to_currency)
+        db = DatabaseManager()
+        settings = SettingsLoader()
 
-        if not rate_info:
-            return False, f"Курс {from_currency} → {to_currency} недоступен. Повторите попытку позже."
+        # получаем курс с TTL
+        rate = _get_rate_with_ttl(from_currency, to_currency, db, settings)
+        if not rate:
+            raise ApiRequestError(
+                f"Курс {from_currency}→{to_currency} недоступен. "
+                f"Повторите попытку позже или проверьте подключение к сети."
+            )
 
-        rate = rate_info["rate"]
-        updated_at = rate_info.get("updated_at", "неизвестно")
-
-        # парсим дату если возможно
-        try:
-            dt = datetime.fromisoformat(updated_at)
-            updated_str = dt.strftime("%Y-%m-%d %H:%M:%S")
-        except:
-            updated_str = updated_at
-
-        # вычисляем обратный курс
+        # обратный курс
         reverse_rate = 1.0 / rate if rate != 0 else 0
 
+        # получаем время обновления
+        rates = db.load_rates()
+        rate_key = f"{from_currency}_{to_currency}"
+        updated_at = rates.get(rate_key, {}).get("updated_at", "неизвестно")
+
         output = []
-        output.append(f"Курс {from_currency} → {to_currency}: {rate:.8f} (обновлено: {updated_str})")
-        output.append(f"Обратный курс {to_currency} → {from_currency}: {utils.format_number(reverse_rate, 2)}")
+        output.append(f"Информация о валютах:")
+        output.append(f"  От: {from_curr.get_display_info()}")
+        output.append(f"  К:  {to_curr.get_display_info()}")
+        output.append("")
+        output.append(f"Курс {from_currency}→{to_currency}: {rate:.8f}")
+        output.append(f"Обратный курс {to_currency}→{from_currency}: {reverse_rate:.8f}")
+        output.append(f"Обновлено: {updated_at}")
 
         return True, "\n".join(output)
 
+    except CurrencyNotFoundError as e:
+        supported = ", ".join(get_supported_currencies())
+        return False, f"{str(e)}\nПоддерживаемые валюты: {supported}"
+    except ApiRequestError as e:
+        return False, str(e)
     except Exception as e:
         return False, f"Ошибка получения курса: {str(e)}"
+
+
+def _get_rate_with_ttl(from_currency: str, to_currency: str, db: DatabaseManager, settings: SettingsLoader):
+    """
+    Получить курс с проверкой TTL (Time To Live).
+    """
+    ttl_seconds = settings.get('RATES_TTL_SECONDS', 300)
+
+    rates = db.load_rates()
+    rate_key = f"{from_currency}_{to_currency}"
+
+    if rate_key in rates:
+        rate_data = rates[rate_key]
+        updated_str = rate_data.get("updated_at")
+
+        # проверяем свежесть
+        if updated_str:
+            try:
+                updated_dt = datetime.fromisoformat(updated_str)
+                age = datetime.now() - updated_dt
+
+                if age.total_seconds() < ttl_seconds:
+                    return rate_data.get("rate")
+            except:
+                pass
+
+    # если прямого курса нет или устарел, пробуем обратный
+    reverse_key = f"{to_currency}_{from_currency}"
+    if reverse_key in rates:
+        rate_data = rates[reverse_key]
+        reverse_rate = rate_data.get("rate")
+        if reverse_rate and reverse_rate != 0:
+            return 1.0 / reverse_rate
+
+    return None

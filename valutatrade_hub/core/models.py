@@ -1,6 +1,8 @@
 from .utils import generate_password_salt, hash_password, generate_timestamp
 from copy import deepcopy
 from typing import Optional
+from valutatrade_hub.core.exceptions import InsufficientFundsError, ValidationError
+
 
 class User:
     def __init__(self, user_id: int,
@@ -129,12 +131,14 @@ class Wallet:
         self._balance += amount
 
     def withdraw(self, amount: float):
-        if not amount or not isinstance(amount, (int, float)):
-            raise TypeError("Ошибка: сумма снятия должна быть числом.")
+        if not amount or not isinstance(amount, (int, float)) or (amount < 0):
+            raise ValidationError("Ошибка: сумма снятия должна быть положительным числом.")
         if amount > self._balance:
-            raise ValueError(f"Ошибка: недостаточно средств. Доступно {self._balance} {self.currency_code}.")
-        if amount < 0:
-            raise ValueError("Ошибка: сумма снятия должна быть положительным числом.") # to change
+            raise InsufficientFundsError(
+                available = self._balance,
+                required = amount,
+                currency_code = self.currency_code
+            )
         self._balance -= amount
 
     def get_balance_into(self):

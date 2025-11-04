@@ -5,6 +5,13 @@ sys.path.append('.')
 
 from valutatrade_hub.core import usecases
 
+from valutatrade_hub.core.exceptions import (
+    InsufficientFundsError,
+    CurrencyNotFoundError,
+    ApiRequestError
+)
+from valutatrade_hub.core.currencies import get_supported_currencies
+
 def create_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
@@ -132,22 +139,61 @@ def handle_show_portfolio(args):
     return 0 if success else 1
 
 def handle_buy(args):
-
-    success, message = usecases.buy_currency(args.currency, args.amount)
-    print(message)
-    return 0 if success else 1
+    try:
+        success, message = usecases.buy_currency(args.currency, args.amount)
+        print(message)
+        return 0 if success else 1
+    except CurrencyNotFoundError as e:
+        print(f"❌ {e}")
+        print(f"💡 Поддерживаемые валюты: {', '.join(get_supported_currencies())}")
+        print("   Используйте: get-rate --from USD --to <ВАЛЮТА> для проверки курса")
+        return 1
+    except InsufficientFundsError as e:
+        print(f"❌ {e}")
+        print("💡 Пополните USD кошелёк или продайте другие валюты")
+        return 1
+    except ApiRequestError as e:
+        print(f"❌ {e}")
+        print("💡 Повторите попытку позже или проверьте подключение к сети")
+        return 1
 
 def handle_sell(args):
-
-    success, message = usecases.sell_currency(args.currency, args.amount)
-    print(message)
-    return 0 if success else 1
+    try:
+        success, message = usecases.sell_currency(args.currency, args.amount)
+        print(message)
+        return 0 if success else 1
+    except CurrencyNotFoundError as e:
+        print(f"❌ {e}")
+        print(f"💡 Поддерживаемые валюты: {', '.join(get_supported_currencies())}")
+        print("   Используйте: get-rate --from USD --to <ВАЛЮТА> для проверки курса")
+        return 1
+    except InsufficientFundsError as e:
+        print(f"❌ {e}")
+        print("💡 Пополните USD кошелёк или продайте другие валюты")
+        return 1
+    except ApiRequestError as e:
+        print(f"❌ {e}")
+        print("💡 Повторите попытку позже или проверьте подключение к сети")
+        return 1
 
 def handle_get_rate(args):
-
-    success, message = usecases.get_exchange_rate(args.from_currency, args.to_currency)
-    print(message)
-    return 0 if success else 1
+    try:
+        success, message = usecases.get_exchange_rate(args.from_currency, args.to_currency)
+        print(message)
+        return 0 if success else 1
+    except CurrencyNotFoundError as e:
+        print(f"❌ {e}")
+        print(f"💡 Поддерживаемые валюты: {', '.join(get_supported_currencies())}")
+        print("   Используйте: get-rate --from USD --to <ВАЛЮТА> для проверки курса")
+        return 1
+    except InsufficientFundsError as e:
+        print(f"❌ {e}")
+        print("💡 Пополните USD кошелёк или продайте другие валюты")
+        return 1
+    except ApiRequestError as e:
+        print(f"❌ {e}")
+        print("💡 Повторите попытку позже или проверьте подключение к сети")
+        return 1
 
 def run():
 
