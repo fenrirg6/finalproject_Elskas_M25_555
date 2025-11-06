@@ -95,26 +95,6 @@ class SettingsLoader(metaclass=SingletonMeta):
         """
         self._config[key] = value
 
-    def reload(self) -> None:
-        """
-        Перезагрузить конфигурацию из файла.
-        Сбрасывает все изменения, сделанные через set()
-        """
-        self._config = self.DEFAULT_CONFIG.copy()
-        self._load_from_file()
-
-    def save_to_file(self, path: Optional[Path] = None) -> None:
-        """
-        Сохранить текущую конфигурацию в файл
-        """
-        save_path = path or self._config_path
-
-        try:
-            with open(save_path, "w", encoding="utf-8") as f:
-                json.dump(self._config, f, indent=2, ensure_ascii=False)
-        except IOError as e:
-            print(f"[ERROR] Не удалось сохранить конфигурацию в {save_path}: {e}")
-
     def get_all(self) -> Dict[str, Any]:
         """
         Получить всю конфигурацию

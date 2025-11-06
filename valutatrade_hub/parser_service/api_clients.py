@@ -204,7 +204,7 @@ class ExchangeRateApiClient(BaseApiClient):
                 rate_key = f"{currency_code}_{self.config.BASE_CURRENCY}"
                 rates[rate_key] = 1.0 / float(rate)
 
-                print(f"  ✓ {currency_code}: {rate} → {rate_key}: {rates[rate_key]:.8f}")
+                logger.debug(f"Добавлен курс: {currency_code}: {rate} → {rate_key}: {rates[rate_key]:.8f}")
 
             if len(rates) == 0:
                 raise ApiRequestError(
@@ -219,9 +219,5 @@ class ExchangeRateApiClient(BaseApiClient):
         except ApiRequestError:
             raise
         except Exception as e:
-            import traceback
-            print(f"\n[ERROR] Исключение в fetch_rates:")
-            print(traceback.format_exc())
-            raise ApiRequestError(
-                f"Ошибка при парсинге ответа ExchangeRate-API: {str(e)}"
-            )
+            logger.exception(f"Ошибка при парсинге ответа ExchangeRate-API: {str(e)}")
+            raise ApiRequestError(f"Ошибка при парсинге ответа ExchangeRate-API: {str(e)}")

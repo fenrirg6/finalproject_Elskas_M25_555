@@ -1,6 +1,6 @@
 from .utils import generate_password_salt, hash_password, generate_timestamp
 from copy import deepcopy
-from typing import Optional
+from typing import Optional, Dict
 from valutatrade_hub.core.exceptions import InsufficientFundsError, ValidationError
 
 
@@ -225,13 +225,19 @@ class Portfolio:
                     # если курса нет - скипаем валюту
         return total
 
-    def get_or_create_wallet(self, currency_code):
+    def get_or_create_wallet(self, currency_code) -> Wallet:
         """Возвращает объект Wallet по коду валюты или создает новый"""
         currency_code = currency_code.upper().strip()
-
         if currency_code not in self._wallets:
             self._wallets[currency_code] = Wallet(currency_code, 0.0)
         return self._wallets[currency_code]
+
+    def get_wallet(self, currency_code: str) -> Optional[Wallet]:
+        """
+        Получить кошелек БЕЗ автоматического создания
+        """
+        currency_code = currency_code.upper().strip()
+        return self._wallets.get(currency_code)
 
     def to_dict(self):
         """Преобразование к словарю"""
@@ -259,3 +265,9 @@ class Portfolio:
                 wallets[code] = Wallet.from_dict(wallet_data)
 
         return cls(user_id=data["user_id"], wallets=wallets)
+
+    def get_all_wallets(self):
+        """Получение всех кошельков (копия словаря).
+        Введено для инкапсуляции portfolio._wallets
+        """
+        return self._wallets.copy()

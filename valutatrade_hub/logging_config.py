@@ -6,10 +6,10 @@ from typing import Optional
 
 def setup_logging(
     log_file: Optional[str] = None,
-    log_level: str = "INFO",
+    log_level: Optional[str] = None,
     log_format: Optional[str] = None,
-    max_bytes: int = 10485760,  # 10 MB
-    backup_count: int = 5
+    max_bytes: Optional[int] = None,
+    backup_count: Optional[int] = None
 ) -> logging.Logger:
     """
     Настроить систему логирования приложения
@@ -83,66 +83,5 @@ def get_logger(name: str = "valutatrade_hub") -> logging.Logger:
     # если логгер не настроен - настраиваем
     if not logger.handlers:
         setup_logging()
-
-    return logger
-
-
-# JSON формат логов
-class JsonFormatter(logging.Formatter):
-    """
-    Форматтер для вывода логов в JSON формате
-    """
-
-    def format(self, record: logging.LogRecord) -> str:
-        """Форматирует запись лога в JSON"""
-        import json
-        from datetime import datetime
-
-        log_data = {
-            "timestamp": datetime.fromtimestamp(record.created).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-        }
-
-        # добавляем дополнительные поля
-        if hasattr(record, "user_id"):
-            log_data["user_id"] = record.user_id
-        if hasattr(record, "username"):
-            log_data["username"] = record.username
-        if hasattr(record, "action"):
-            log_data["action"] = record.action
-        if hasattr(record, "currency_code"):
-            log_data["currency_code"] = record.currency_code
-        if hasattr(record, "amount"):
-            log_data["amount"] = record.amount
-
-        # добавляем информацию об исключении
-        if record.exc_info:
-            log_data["exception"] = self.formatException(record.exc_info)
-
-        return json.dumps(log_data, ensure_ascii=False)
-
-
-def setup_json_logging(log_file: str = "logs/actions.json") -> logging.Logger:
-    """
-    Настроить логирование в JSON формате
-    """
-    log_path = Path(log_file)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-
-    logger = logging.getLogger("valutatrade_hub.json")
-    logger.setLevel(logging.INFO)
-    logger.handlers.clear()
-
-    file_handler = logging.handlers.RotatingFileHandler(
-        filename=log_file,
-        maxBytes=10485760,  # 10 MB
-        backupCount=5,
-        encoding="utf-8"
-    )
-    file_handler.setFormatter(JsonFormatter())
-    logger.addHandler(file_handler)
-    logger.propagate = False
 
     return logger

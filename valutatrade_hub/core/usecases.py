@@ -1,9 +1,6 @@
 from valutatrade_hub.logging_config import get_logger
-import sys
-sys.path.append('.')
 
 from valutatrade_hub.core.models import User, Portfolio
-from valutatrade_hub.core import utils
 
 from valutatrade_hub.core.exceptions import (
     InsufficientFundsError,
@@ -16,6 +13,8 @@ from valutatrade_hub.core.currencies import get_currency, get_supported_currenci
 from valutatrade_hub.infra.database import DatabaseManager
 from valutatrade_hub.infra.settings import SettingsLoader
 from valutatrade_hub.decorators import log_action
+
+from datetime import datetime, timezone
 
 # хранение текущей сессии
 _current_user = None
@@ -68,7 +67,7 @@ def login_user(username, password):
     try:
         db = DatabaseManager()
         # ищем пользователя
-        user_data = utils.find_user_by_username(username)
+        user_data = db.find_user_by_username(username)
         if not user_data:
             return False, f"Пользователь '{username}' не найден"
 
@@ -115,6 +114,28 @@ def require_authentication():
         raise AuthenticationError("Ошибка: Сначала выполните login")
 
 
+def _convert_through_usd(from_currency: str, to_currency: str, db: DatabaseManager, settings: SettingsLoader):
+    """
+    Конвертировать валюту через USD (треугольная конвертация)
+    """
+    # если одна из валют USD то используем прямой курс
+    if from_currency == "USD":
+        return _get_rate_with_ttl(to_currency, "USD", db, settings)
+
+    if to_currency == "USD":
+        return _get_rate_with_ttl(from_currency, "USD", db, settings)
+
+    # иначе FROM → USD → TO
+    # получаем курсы FROM → USD и TO → USD
+    from_to_usd = _get_rate_with_ttl(from_currency, "USD", db, settings)
+    to_to_usd = _get_rate_with_ttl(to_currency, "USD", db, settings)
+
+    if from_to_usd and to_to_usd:
+        return from_to_usd / to_to_usd
+
+    return None
+
+
 def show_portfolio(base_currency: str = 'USD'):
     """Показать портфель (без изменений, но с валидацией currency)"""
     try:
@@ -126,12 +147,13 @@ def show_portfolio(base_currency: str = 'USD'):
         portfolio = get_current_portfolio()
         user = get_current_user()
 
-        wallets_dict = portfolio._wallets
+        wallets_dict = portfolio.get_all_wallets()
 
         if not wallets_dict:
             return True, f"Портфель пользователя '{user.username}' пуст. Добавьте валюту командой buy"
 
         db = DatabaseManager()
+        settings = SettingsLoader
 
         output = [f"Портфель пользователя '{user.username}' (база: {base_currency}):"]
         total_value = 0.0
@@ -142,7 +164,7 @@ def show_portfolio(base_currency: str = 'USD'):
             if currency_code == base_currency:
                 value_in_base = balance
             else:
-                rate = db.get_rate(currency_code, base_currency)
+                rate = _convert_through_usd(currency_code, base_currency, db, settings)
                 if rate is None:
                     output.append(f"- {currency_code}: {balance:.4f} → курс недоступен")
                     continue
@@ -196,7 +218,7 @@ def buy_currency(currency_code: str, amount: float):
         # проверяем наличие USD кошелька и достаточность средств
         usd_wallet = portfolio.get_or_create_wallet("USD")
         if usd_wallet.balance < cost_in_usd:
-            return InsufficientFundsError(
+            raise InsufficientFundsError(
                 available = usd_wallet.balance,
                 required = cost_in_usd,
                 currency_code = "USD"
@@ -252,7 +274,7 @@ def sell_currency(currency_code: str, amount: float):
         settings = SettingsLoader()
 
         # проверяем наличие кошелька
-        wallet = portfolio.get_or_create_wallet(currency_code)
+        wallet = portfolio.get_wallet(currency_code)
         if not wallet:
             supported = ", ".join(get_supported_currencies())
             raise ValidationError(
@@ -280,13 +302,11 @@ def sell_currency(currency_code: str, amount: float):
         db.update_portfolio(portfolio.to_dict())
 
         # формируем вывод
-        output = []
-        output.append(f"Продажа выполнена: {amount:.4f} {currency_code} ({currency.get_display_info()})")
-        output.append(f"Курс: {rate:.2f} USD/{currency_code}")
-        output.append("Изменения в портфеле:")
-        output.append(f"- {currency_code}: было {old_balance:.4f} → стало {wallet.balance:.4f}")
-        output.append(f"- USD: было {old_usd:.2f} → стало {usd_wallet.balance:.2f} USD")
-        output.append(f"Выручка: {revenue_in_usd:.2f} USD")
+        output = [f"Продажа выполнена: {amount:.4f} {currency_code} ({currency.get_display_info()})",
+                  f"Курс: {rate:.2f} USD/{currency_code}", "Изменения в портфеле:",
+                  f"- {currency_code}: было {old_balance:.4f} → стало {wallet.balance:.4f}",
+                  f"- USD: было {old_usd:.2f} → стало {usd_wallet.balance:.2f} USD",
+                  f"Выручка: {revenue_in_usd:.2f} USD"]
 
         return True, "\n".join(output)
 
@@ -308,13 +328,9 @@ def get_exchange_rate(from_currency: str, to_currency: str):
 
         # обрабатываем случай одинаковых валют
         if from_currency == to_currency:
-            output = []
-            output.append(f"Информация о валюте:")
-            output.append(f"  {from_curr.get_display_info()}")
-            output.append("")
-            output.append(f"Курс {from_currency} → {to_currency}: 1.00000000")
-            output.append(f"Обратный курс {to_currency} → {from_currency}: 1.00000000")
-            output.append(f"Обновлено: not applicable")
+            output = [f"Информация о валюте:", f"  {from_curr.get_display_info()}", "",
+                      f"Курс {from_currency} → {to_currency}: 1.00000000",
+                      f"Обратный курс {to_currency} → {from_currency}: 1.00000000", f"Обновлено: not applicable"]
             return True, "\n".join(output)
 
         db = DatabaseManager()
@@ -346,14 +362,9 @@ def get_exchange_rate(from_currency: str, to_currency: str):
         elif reverse_key in pairs:
             updated_at = pairs[reverse_key].get("updated_at", "неизвестно")
 
-        output = []
-        output.append(f"Информация о валютах:")
-        output.append(f"  От: {from_curr.get_display_info()}")
-        output.append(f"  К:  {to_curr.get_display_info()}")
-        output.append("")
-        output.append(f"Курс {from_currency} → {to_currency}: {rate:.8f}")
-        output.append(f"Обратный курс {to_currency} → {from_currency}: {reverse_rate:.8f}")
-        output.append(f"Обновлено: {updated_at}")
+        output = [f"Информация о валютах:", f"  От: {from_curr.get_display_info()}",
+                  f"  К:  {to_curr.get_display_info()}", "", f"Курс {from_currency} → {to_currency}: {rate:.8f}",
+                  f"Обратный курс {to_currency} → {from_currency}: {reverse_rate:.8f}", f"Обновлено: {updated_at}"]
 
         return True, "\n".join(output)
 
@@ -374,39 +385,94 @@ def _get_rate_with_ttl(from_currency: str, to_currency: str, db: DatabaseManager
     rate = db.get_rate(from_currency, to_currency)
 
     if rate is not None:
-        logger.debug(f"Курс {from_currency} → {to_currency} найден через DatabaseManager: {rate}")
+        logger.debug(f"Курс {from_currency}→{to_currency} найден через DatabaseManager: {rate}")
+
+        # проверка ttl
+        from valutatrade_hub.parser_service.storage import RatesStorage
+
+        try:
+            storage = RatesStorage(settings.get('RATES_FILE_PATH', 'data/rates.json'))
+            data = storage.get_all_rates()
+            pairs = data.get('pairs', {})
+
+            rate_key = f"{from_currency}_{to_currency}"
+            reverse_key = f"{to_currency}_{from_currency}"
+
+            # проверяем какой ключ есть в кэше
+            updated_at_str = None
+            if rate_key in pairs:
+                updated_at_str = pairs[rate_key].get('updated_at')
+            elif reverse_key in pairs:
+                updated_at_str = pairs[reverse_key].get('updated_at')
+
+            if updated_at_str:
+                try:
+                    # парсим ISO timestamp
+                    if updated_at_str.endswith('Z'):
+                        updated_at_str = updated_at_str[:-1] + '+00:00'
+
+                    updated_at = datetime.fromisoformat(updated_at_str)
+
+                    # получаем TTL из настроек (5 мин)
+                    ttl_seconds = settings.get('CACHE_TTL_SECONDS', 300)
+
+                    # вычисляем возраст курса
+                    now = datetime.now(timezone.utc)
+                    if updated_at.tzinfo is None:
+                        updated_at = updated_at.replace(tzinfo=timezone.utc)
+
+                    age_seconds = (now - updated_at).total_seconds()
+
+                    # если курс устарел
+                    if age_seconds > ttl_seconds:
+                        logger.warning(
+                            f"Курс {from_currency}→{to_currency} устарел: "
+                            f"возраст {age_seconds:.0f}с > TTL {ttl_seconds}с. "
+                            f"Рекомендуется выполнить 'update-rates'"
+                        )
+                        # можно вернуть None или оставить старое значение
+                        return rate
+
+                    logger.debug(f"Курс {from_currency}→{to_currency} актуален (возраст: {age_seconds:.0f}с)")
+
+                except (ValueError, TypeError) as e:
+                    logger.error(f"Ошибка парсинга времени обновления: {e}")
+
+        except Exception as e:
+            logger.error(f"Ошибка проверки TTL: {e}")
+
         return rate
 
-    # если не нашли через DatabaseManager пробуем напрямую из rates.json
+    # если не нашли через DatabaseManager то пробуем напрямую из rates.json
     from valutatrade_hub.parser_service.storage import RatesStorage
 
     try:
-        storage = RatesStorage(settings.get("RATES_FILE_PATH", "data/rates.json"))
+        storage = RatesStorage(settings.get('RATES_FILE_PATH', 'data/rates.json'))
         data = storage.get_all_rates()
-        pairs = data.get("pairs", {})
+        pairs = data.get('pairs', {})
 
         # прямой курс
         rate_key = f"{from_currency}_{to_currency}"
         if rate_key in pairs:
             rate_info = pairs[rate_key]
-            rate_value = rate_info.get("rate")
+            rate_value = rate_info.get('rate')
 
             if rate_value:
-                logger.debug(f"Курс {from_currency} → {to_currency} найден в кэше: {rate_value}")
+                logger.debug(f"Курс {from_currency}→{to_currency} найден в кэше: {rate_value}")
                 return float(rate_value)
 
         # обратный курс
         reverse_key = f"{to_currency}_{from_currency}"
         if reverse_key in pairs:
             rate_info = pairs[reverse_key]
-            reverse_rate = rate_info.get("rate")
+            reverse_rate = rate_info.get('rate')
 
             if reverse_rate and reverse_rate != 0:
                 direct_rate = 1.0 / float(reverse_rate)
-                logger.debug(f"Курс {from_currency} → {to_currency} вычислен из обратного: {direct_rate}")
+                logger.debug(f"Курс {from_currency}→{to_currency} вычислен из обратного: {direct_rate}")
                 return direct_rate
 
-        logger.warning(f"Курс {from_currency} → {to_currency} не найден в кэше")
+        logger.warning(f"Курс {from_currency}→{to_currency} не найден в кэше")
         return None
 
     except Exception as e:

@@ -107,17 +107,6 @@ class DatabaseManager(metaclass=type):
             print(f"[ERROR] Не удалось сохранить {file_path}: {e}")
             return False
 
-    def invalidate_cache(self, file_path: Optional[Path] = None) -> None:
-        """
-        Сбросить кеш
-        """
-        if file_path:
-            cache_key = str(file_path)
-            if cache_key in self._cache:
-                del self._cache[cache_key]
-        else:
-            self._cache.clear()
-
     # методы для работы с пользователями
     def load_users(self) -> List[dict]:
         """Загрузить всех пользователей"""
@@ -243,24 +232,6 @@ class DatabaseManager(metaclass=type):
                 return 1.0 / reverse_rate
 
         return None
-
-    def update_rate(self, from_currency: str, to_currency: str, rate: float) -> bool:
-        """
-        Обновить курс валюты
-        """
-        from datetime import datetime
-
-        rates = self.load_rates()
-
-        rate_key = f"{from_currency.upper()}_{to_currency.upper()}"
-        rates[rate_key] = {
-            "rate": rate,
-            "updated_at": datetime.now().isoformat()
-        }
-
-        rates["last_refresh"] = datetime.now().isoformat()
-
-        return self.save_rates(rates)
 
     def __repr__(self) -> str:
         """Отладочное представление"""

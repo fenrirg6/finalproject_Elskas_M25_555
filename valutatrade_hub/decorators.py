@@ -2,6 +2,13 @@ import functools
 from typing import Callable, Any
 from datetime import datetime
 
+from valutatrade_hub.core.exceptions import (
+    InsufficientFundsError,
+    CurrencyNotFoundError,
+    ApiRequestError
+)
+from valutatrade_hub.core.currencies import get_supported_currencies
+
 def log_action(action_name: str = None, verbose: bool = False):
     """
     Декоратор для логирования доменных операций
@@ -86,3 +93,22 @@ def log_action(action_name: str = None, verbose: bool = False):
 
     return decorator
 
+def handle_command_errors(func):
+    """Декоратор для обработки стандартных ошибок команд"""
+    @functools.wraps(func)
+    def wrapper(args):
+        try:
+            return func(args)
+        except CurrencyNotFoundError as e:
+            print(f"❌ {e}")
+            print(f"Поддерживаемые валюты: {', '.join(get_supported_currencies())}")
+            return 1
+        except InsufficientFundsError as e:
+            print(f"❌ {e}")
+            print("Пополните USD кошелёк или продайте другие валюты")
+            return 1
+        except ApiRequestError as e:
+            print(f"❌ {e}")
+            print("Повторите попытку позже или проверьте подключение к сети")
+            return 1
+    return wrapper

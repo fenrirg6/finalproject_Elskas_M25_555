@@ -4,13 +4,8 @@ import sys
 sys.path.append('.')
 
 from valutatrade_hub.core import usecases
-
-from valutatrade_hub.core.exceptions import (
-    InsufficientFundsError,
-    CurrencyNotFoundError,
-    ApiRequestError
-)
-from valutatrade_hub.core.currencies import get_supported_currencies
+from valutatrade_hub.decorators import handle_command_errors
+from valutatrade_hub.core.currencies import get_currency, FiatCurrency, CryptoCurrency
 
 def create_parser() -> argparse.ArgumentParser:
 
@@ -140,13 +135,11 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 def handle_register(args):
-
     success, message = usecases.register_user(args.username, args.password)
     print(message)
     return 0 if success else 1
 
 def handle_login(args):
-
     success, message = usecases.login_user(args.username, args.password)
     print(message)
     return 0 if success else 1
@@ -157,62 +150,23 @@ def handle_show_portfolio(args):
     print(message)
     return 0 if success else 1
 
+@handle_command_errors
 def handle_buy(args):
-    try:
-        success, message = usecases.buy_currency(args.currency, args.amount)
-        print(message)
-        return 0 if success else 1
-    except CurrencyNotFoundError as e:
-        print(f"❌ {e}")
-        print(f"Поддерживаемые валюты: {', '.join(get_supported_currencies())}")
-        print("Используйте: get-rate --from USD --to <ВАЛЮТА> для проверки курса")
-        return 1
-    except InsufficientFundsError as e:
-        print(f"❌ {e}")
-        print("Пополните USD кошелёк или продайте другие валюты")
-        return 1
-    except ApiRequestError as e:
-        print(f"❌ {e}")
-        print("Повторите попытку позже или проверьте подключение к сети")
-        return 1
+    success, message = usecases.buy_currency(args.currency, args.amount)
+    print(message)
+    return 0 if success else 1
 
+@handle_command_errors
 def handle_sell(args):
-    try:
-        success, message = usecases.sell_currency(args.currency, args.amount)
-        print(message)
-        return 0 if success else 1
-    except CurrencyNotFoundError as e:
-        print(f"❌ {e}")
-        print(f"Поддерживаемые валюты: {', '.join(get_supported_currencies())}")
-        print("Используйте: get-rate --from USD --to <ВАЛЮТА> для проверки курса")
-        return 1
-    except InsufficientFundsError as e:
-        print(f"❌ {e}")
-        print("Пополните USD кошелёк или продайте другие валюты")
-        return 1
-    except ApiRequestError as e:
-        print(f"❌ {e}")
-        print("Повторите попытку позже или проверьте подключение к сети")
-        return 1
+    success, message = usecases.sell_currency(args.currency, args.amount)
+    print(message)
+    return 0 if success else 1
 
+@handle_command_errors
 def handle_get_rate(args):
-    try:
-        success, message = usecases.get_exchange_rate(args.from_currency, args.to_currency)
-        print(message)
-        return 0 if success else 1
-    except CurrencyNotFoundError as e:
-        print(f"❌ {e}")
-        print(f"Поддерживаемые валюты: {', '.join(get_supported_currencies())}")
-        print("Используйте: get-rate --from USD --to <ВАЛЮТА> для проверки курса")
-        return 1
-    except InsufficientFundsError as e:
-        print(f"❌ {e}")
-        print("Пополните USD кошелёк или продайте другие валюты")
-        return 1
-    except ApiRequestError as e:
-        print(f"❌ {e}")
-        print("Повторите попытку позже или проверьте подключение к сети")
-        return 1
+    success, message = usecases.get_exchange_rate(args.from_currency, args.to_currency)
+    print(message)
+    return 0 if success else 1
 
 
 def handle_update_rates(args):
@@ -319,7 +273,8 @@ def handle_show_rates(args):
             try:
                 from_curr = pair_key.split('_')[0]
                 currency = get_currency(from_curr)
-                pair_display = f"{pair_key} ({currency.__class__.__name__[:1]})"  # F/C
+                currency_type = "F" if isinstance(currency, FiatCurrency) else "C"
+                pair_display = f"{pair_key} ({currency_type})"
             except (CurrencyNotFoundError, IndexError):
                 pair_display = pair_key
 
