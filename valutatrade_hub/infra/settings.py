@@ -6,7 +6,7 @@ class SingletonMeta(type):
     """
     Метакласс для реализации паттерна Singleton.
     Гарантирует, что класс будет иметь только один экземпляр.
-    Потокобезопасная версия не требуется для однопоточного CLI приложения.
+    Потокобезопасная версия не требуется для однопоточного CLI приложения
     """
 
     _instances: Dict[type, Any] = {}
@@ -15,7 +15,7 @@ class SingletonMeta(type):
         """
         Переопределяет создание экземпляра класса.
         При первом вызове создаёт экземпляр и сохраняет его.
-        При последующих вызовах возвращает сохранённый экземпляр.
+        При последующих вызовах возвращает сохранённый экземпляр
         """
         if cls not in cls._instances:
             instance = super().__call__(*args, **kwargs)
@@ -27,7 +27,7 @@ class SettingsLoader(metaclass=SingletonMeta):
     """
     Singleton для загрузки и кеширования конфигурации приложения.
     Конфигурация загружается из файла config.json или использует значения по умолчанию.
-    Гарантируется единственный экземпляр в приложении.
+    Гарантируется единственный экземпляр в приложении
     """
 
     # значения по умолчанию
@@ -53,7 +53,7 @@ class SettingsLoader(metaclass=SingletonMeta):
 
     def __init__(self, config_path: Optional[str] = None):
         """
-        Инициализация загрузчика настроек.
+        Инициализация загрузчика настроек
         """
         # проверяем не была ли уже выполнена инициализация
         if hasattr(self, "_initialized"):
@@ -69,7 +69,7 @@ class SettingsLoader(metaclass=SingletonMeta):
 
     def _load_from_file(self) -> None:
         """
-        Загрузить конфигурацию из JSON файла.
+        Загрузить конфигурацию из JSON файла
         """
         if not self._config_path.exists():
             return
@@ -85,27 +85,27 @@ class SettingsLoader(metaclass=SingletonMeta):
 
     def get(self, key: str, default: Any = None) -> Any:
         """
-        Получить значение настройки по ключу.
+        Получить значение настройки по ключу
         """
         return self._config.get(key, default)
 
     def set(self, key: str, value: Any) -> None:
         """
-        Установить значение настройки (в памяти, без сохранения в файл).
+        Установить значение настройки (в памяти, без сохранения в файл)
         """
         self._config[key] = value
 
     def reload(self) -> None:
         """
         Перезагрузить конфигурацию из файла.
-        Сбрасывает все изменения, сделанные через set().
+        Сбрасывает все изменения, сделанные через set()
         """
         self._config = self.DEFAULT_CONFIG.copy()
         self._load_from_file()
 
     def save_to_file(self, path: Optional[Path] = None) -> None:
         """
-        Сохранить текущую конфигурацию в файл.
+        Сохранить текущую конфигурацию в файл
         """
         save_path = path or self._config_path
 
@@ -117,7 +117,7 @@ class SettingsLoader(metaclass=SingletonMeta):
 
     def get_all(self) -> Dict[str, Any]:
         """
-        Получить всю конфигурацию.
+        Получить всю конфигурацию
         """
         return self._config.copy()
 

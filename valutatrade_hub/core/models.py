@@ -5,12 +5,16 @@ from valutatrade_hub.core.exceptions import InsufficientFundsError, ValidationEr
 
 
 class User:
+    """Базовый класс, определяет объект пользователя в приложении"""
     def __init__(self, user_id: int,
                  username: str,
                  password: Optional[str] = None,
                  hashed_password: Optional[str] = None,
                  salt: Optional[str] = None,
                  registration_date: Optional[str] = None):
+        if not username or not username.strip():
+            raise ValueError("Имя пользователя не может быть пустым")
+
         self._user_id = user_id
         self._username = username
 
@@ -32,10 +36,12 @@ class User:
 
     @property
     def user_id(self):
+        """Геттер идентификатора пользователя"""
         return self._user_id
 
     @user_id.setter
     def user_id(self, new_user_id):
+        """Сеттер идентификатора пользователя"""
         if not isinstance(new_user_id, int):
             raise ValueError("not int") # to change
         old_user_id = self._user_id
@@ -43,10 +49,12 @@ class User:
 
     @property
     def username(self):
+        """Геттер имени пользователя"""
         return self._username
 
     @username.setter
     def username(self, new_username):
+        """Сеттер имени пользователя"""
         if not isinstance(new_username, str):
             raise ValueError("not str") # to change
         if new_username.strip() == "":
@@ -55,35 +63,37 @@ class User:
 
     @property
     def salt(self):
+        """Геттер соли"""
         return self._salt
 
     @property
     def hashed_password(self):
+        """Геттер хешированного пароля"""
         return self._hashed_password
 
     @property
     def registration_date(self):
+        """Геттер даты регистрации"""
         return self._registration_date
 
     def get_user_into(self):
-        # выводит информацию о пользователе
+        """Выводит информацию о пользователе"""
         return f"'user_id': {self._user_id}, 'username': {self._username}, 'registration date': {self._registration_date}"
 
     def change_password(self, new_password: str):
-        # изменяет пароль пользователя, с хешированием нового пароля.
+        """Изменяет пароль пользователя с хешированием нового пароля"""
         if len(new_password) < 4:
-            raise ValueError("Ошибка: пароль не может быть короче 4-х символов.") # to change
+            raise ValueError("Ошибка: пароль не может быть короче 4-х символов.")
         self._salt = generate_password_salt()
         self._hashed_password = hash_password(self._salt, new_password)
-        # save_to_json(self)
 
     def verify_password(self, password: str):
-        # проверяет введённый пароль на совпадение
+        """Проверяет при авторизации введенный пароль на соответствие"""
         inputted_hashed_password = hash_password(self._salt, password)
         return inputted_hashed_password == self._hashed_password
 
     def to_dict(self):
-        # преобразование в словарь для сохранения в JSON
+        """Преобразует данные к словарю для загрузки из JSON"""
         return {
             "user_id": self._user_id,
             "username": self._username,
@@ -94,8 +104,7 @@ class User:
 
     @classmethod
     def from_dict(cls, data: dict):
-        # создание из словаря для загрузки из JSON
-
+        """Преобразует данные из словаря для загрузки из JSON"""
         return cls(
             user_id=data["user_id"],
             username=data["username"],
@@ -105,6 +114,7 @@ class User:
         )
 
 class Wallet:
+    """Базовый класс, определяющий кошелек в приложении"""
     def __init__(self, currency_code, balance):
         if not currency_code or not currency_code.strip():
             raise ValueError("Ошибка: код валюты не может быть пустым.")
@@ -113,10 +123,12 @@ class Wallet:
 
     @property
     def balance(self):
+        """Геттер баланса"""
         return self._balance
 
     @balance.setter
     def balance(self, new_balance):
+        """Сеттер баланса"""
         if not isinstance(new_balance, (int, float)):
             raise TypeError("Ошибка: баланс должен быть числом.")
         if new_balance < 0:
@@ -124,6 +136,7 @@ class Wallet:
         self._balance = float(new_balance) # явно преобразуем
 
     def deposit(self, amount: float):
+        """Метод для пополнения кошелька"""
         if not amount or not isinstance(amount, (int, float)):
             raise TypeError("Ошибка: сумма пополнения должна быть числом.")
         if amount < 0:
@@ -131,6 +144,7 @@ class Wallet:
         self._balance += amount
 
     def withdraw(self, amount: float):
+        """Метод для снятия средств с кошелька"""
         if not amount or not isinstance(amount, (int, float)) or (amount < 0):
             raise ValidationError("Ошибка: сумма снятия должна быть положительным числом.")
         if amount > self._balance:
@@ -142,9 +156,11 @@ class Wallet:
         self._balance -= amount
 
     def get_balance_into(self):
+        """Выводит информацию по балансу на кошельке"""
         return {"currency_code": self.currency_code, "balance": self._balance}
 
     def to_dict(self) -> dict:
+        """Преобразует данные к словарю"""
         return {
             "currency_code": self.currency_code,
             "balance": self._balance
@@ -152,6 +168,7 @@ class Wallet:
 
     @classmethod
     def from_dict(cls, data: dict):
+        """Преобразует данные из словаря"""
         return cls(
             currency_code=data["currency_code"],
             balance=data["balance"]
@@ -159,19 +176,23 @@ class Wallet:
 
 
 class Portfolio:
+    """Базовый класс для инициализации портфеля пользователя"""
     def __init__(self, user_id: int, wallets: dict[str, Wallet] = None):
         self._user_id = user_id
         self._wallets = wallets if wallets is not None else {} # опционально
 
     @property
     def user_id(self):
+        """Геттер идентификатора пользователя владельца портфеля"""
         return self._user_id
 
     @property
     def wallets(self):
+        """Геттер кошелька в портфеле через deepcopy"""
         return deepcopy(self._wallets)
 
     def add_currency(self, currency_code:str):
+        """Добавляет валюту к портфелю"""
         currency_code = currency_code.upper().strip()
 
         if currency_code in self._wallets:
@@ -183,8 +204,8 @@ class Portfolio:
             return new_wallet
 
     def get_total_value(self, exchange_rates: dict[str, float], base_currency: str = "USD"):
-        # возвращает общую стоимость всех валют пользователя в указанной базовой валюте
-        # (по курсам, полученным из API или фиктивным данным).
+        """Возвращает общую стоимость всех валют пользователя в указанной базовой валюте
+        (по курсам, полученным из API или фиктивным данным) """
         if exchange_rates is None:
             exchange_rates = {}
 
@@ -204,16 +225,16 @@ class Portfolio:
                     # если курса нет - скипаем валюту
         return total
 
-    def get_wallet(self, currency_code):
-        # возвращает объект Wallet по коду валюты или создает новый
+    def get_or_create_wallet(self, currency_code):
+        """Возвращает объект Wallet по коду валюты или создает новый"""
         currency_code = currency_code.upper().strip()
 
         if currency_code not in self._wallets:
-            self._wallets[currency_code] = Wallet(currency_code, 0.0) # to change???
-
+            self._wallets[currency_code] = Wallet(currency_code, 0.0)
         return self._wallets[currency_code]
 
     def to_dict(self):
+        """Преобразование к словарю"""
         return {
             "user_id": self._user_id,
             "wallets": {
@@ -224,6 +245,7 @@ class Portfolio:
 
     @classmethod
     def from_dict(cls, data: dict):
+        """Преобразование из словаря"""
         wallets_data = data.get("wallets", {})
 
         # проверяем что словарь

@@ -12,7 +12,7 @@ def setup_logging(
     backup_count: int = 5
 ) -> logging.Logger:
     """
-    Настроить систему логирования приложения.
+    Настроить систему логирования приложения
     """
     # загружаем настройки
     from valutatrade_hub.infra.settings import SettingsLoader
@@ -76,7 +76,7 @@ def setup_logging(
 
 def get_logger(name: str = "valutatrade_hub") -> logging.Logger:
     """
-    Получить логгер для модуля.
+    Получить логгер для модуля
     """
     logger = logging.getLogger(name)
 
@@ -90,7 +90,7 @@ def get_logger(name: str = "valutatrade_hub") -> logging.Logger:
 # JSON формат логов
 class JsonFormatter(logging.Formatter):
     """
-    Форматтер для вывода логов в JSON формате.
+    Форматтер для вывода логов в JSON формате
     """
 
     def format(self, record: logging.LogRecord) -> str:
@@ -126,7 +126,7 @@ class JsonFormatter(logging.Formatter):
 
 def setup_json_logging(log_file: str = "logs/actions.json") -> logging.Logger:
     """
-    Настроить логирование в JSON формате.
+    Настроить логирование в JSON формате
     """
     log_path = Path(log_file)
     log_path.parent.mkdir(parents=True, exist_ok=True)

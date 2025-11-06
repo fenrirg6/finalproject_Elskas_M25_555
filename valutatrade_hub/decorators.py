@@ -4,7 +4,7 @@ from datetime import datetime
 
 def log_action(action_name: str = None, verbose: bool = False):
     """
-    Декоратор для логирования доменных операций.
+    Декоратор для логирования доменных операций
     """
 
     def decorator(func: Callable) -> Callable:

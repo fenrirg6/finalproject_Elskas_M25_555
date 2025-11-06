@@ -8,7 +8,7 @@ class DatabaseManager(metaclass=type):
     """
     Singleton для управления JSON-хранилищем.
     Предоставляет унифицированный интерфейс для работы с users.json,
-    portfolios.json и rates.json.
+    portfolios.json и rates.json
     """
 
     _instance: Optional['DatabaseManager'] = None
@@ -16,7 +16,7 @@ class DatabaseManager(metaclass=type):
 
     def __new__(cls):
         """
-        Реализация Singleton через __new__.
+        Реализация Singleton через __new__
         """
         if cls._instance is None:
             with cls._lock:
@@ -27,7 +27,7 @@ class DatabaseManager(metaclass=type):
 
     def __init__(self):
         """
-        Инициализация менеджера БД.
+        Инициализация менеджера БД
         """
         # проверяем, не была ли уже выполнена инициализация
         if hasattr(self, "_initialized"):
@@ -58,7 +58,7 @@ class DatabaseManager(metaclass=type):
 
     def _load_json(self, file_path: Path, default: Any = None) -> Any:
         """
-        Безопасная загрузка JSON файла.
+        Безопасная загрузка JSON файла
         """
         # проверяем кеш
         cache_key = str(file_path)
@@ -90,7 +90,7 @@ class DatabaseManager(metaclass=type):
 
     def _save_json(self, file_path: Path, data: Any) -> bool:
         """
-        Безопасное сохранение в JSON файл.
+        Безопасное сохранение в JSON файл
         """
         self._ensure_data_directory()
 
@@ -109,7 +109,7 @@ class DatabaseManager(metaclass=type):
 
     def invalidate_cache(self, file_path: Optional[Path] = None) -> None:
         """
-        Сбросить кеш.
+        Сбросить кеш
         """
         if file_path:
             cache_key = str(file_path)
@@ -190,7 +190,7 @@ class DatabaseManager(metaclass=type):
 
     def update_portfolio(self, portfolio_data: dict) -> bool:
         """
-        Обновить или добавить портфель.
+        Обновить или добавить портфель
         """
         portfolios = self.load_portfolios()
 
@@ -219,7 +219,7 @@ class DatabaseManager(metaclass=type):
 
     def get_rate(self, from_currency: str, to_currency: str) -> Optional[float]:
         """
-        Получить курс конвертации.
+        Получить курс конвертации
         """
         from_currency = from_currency.upper().strip()
         to_currency = to_currency.upper().strip()
@@ -228,16 +228,17 @@ class DatabaseManager(metaclass=type):
             return 1.0
 
         rates = self.load_rates()
+        pairs = rates.get("pairs", {})
 
         # прямой курс
         rate_key = f"{from_currency}_{to_currency}"
-        if rate_key in rates:
-            return rates[rate_key].get("rate")
+        if rate_key in pairs:
+            return pairs[rate_key].get("rate")
 
         # обратный курс
         reverse_key = f"{to_currency}_{from_currency}"
-        if reverse_key in rates:
-            reverse_rate = rates[reverse_key].get("rate")
+        if reverse_key in pairs:
+            reverse_rate = pairs[reverse_key].get("rate")
             if reverse_rate and reverse_rate != 0:
                 return 1.0 / reverse_rate
 
@@ -245,7 +246,7 @@ class DatabaseManager(metaclass=type):
 
     def update_rate(self, from_currency: str, to_currency: str, rate: float) -> bool:
         """
-        Обновить курс валюты.
+        Обновить курс валюты
         """
         from datetime import datetime
 

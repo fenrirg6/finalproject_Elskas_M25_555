@@ -34,7 +34,7 @@ class Currency(ABC):
     def get_display_info(self) -> str:
         """
         Получить строковое представление для UI/логов.
-        Формат определяется в наследниках.
+        Формат определяется в наследниках
         """
         pass
 
@@ -49,12 +49,12 @@ class Currency(ABC):
 
 class FiatCurrency(Currency):
     """
-    Фиатная валюта.
+    Фиатная валюта
     """
 
     def __init__(self, code: str, name: str, issuing_country: str):
         """
-        Инициализация фиатной валюты.
+        Инициализация фиатной валюты
         """
         super().__init__(code, name)
 
@@ -65,7 +65,7 @@ class FiatCurrency(Currency):
 
     def get_display_info(self) -> str:
         """
-        Форматированное представление фиатной валюты.
+        Форматированное представление фиатной валюты
         """
         return f"[FIAT] {self.code} — {self.name} (Issuing: {self.issuing_country})"
 
@@ -89,7 +89,7 @@ class CryptoCurrency(Currency):
 
     def get_display_info(self) -> str:
         """
-        Форматированное представление криптовалюты.
+        Форматированное представление криптовалюты
         """
         info = f"[CRYPTO] {self.code} — {self.name} (Algo: {self.algorithm}"
 
@@ -99,9 +99,9 @@ class CryptoCurrency(Currency):
         info += ")"
         return info
 
-# Реестр валют (Currency Registry)
+# реестр валют
 _CURRENCY_REGISTRY: Dict[str, Currency] = {
-    # Фиатные валюты
+    # фиатные валюты
     "USD": FiatCurrency("USD", "US Dollar", "United States"),
     "EUR": FiatCurrency("EUR", "Euro", "Eurozone"),
     "RUB": FiatCurrency("RUB", "Russian Ruble", "Russian Federation"),
@@ -109,7 +109,7 @@ _CURRENCY_REGISTRY: Dict[str, Currency] = {
     "JPY": FiatCurrency("JPY", "Japanese Yen", "Japan"),
     "CNY": FiatCurrency("CNY", "Chinese Yuan", "China"),
 
-    # Криптовалюты
+    # криптовалюты
     "BTC": CryptoCurrency("BTC", "Bitcoin", "SHA-256", 1.12e12),
     "ETH": CryptoCurrency("ETH", "Ethereum", "Ethash", 4.5e11),
     "USDT": CryptoCurrency("USDT", "Tether", "Omni Layer", 8.3e10),
@@ -120,7 +120,7 @@ _CURRENCY_REGISTRY: Dict[str, Currency] = {
 
 def get_currency(code: str) -> Currency:
     """
-    Получить объект валюты по коду (фабричный метод).
+    Получить объект валюты по коду (фабричный метод)
     """
     from valutatrade_hub.core.exceptions import CurrencyNotFoundError
 
@@ -134,20 +134,20 @@ def get_currency(code: str) -> Currency:
 
 def register_currency(currency: Currency) -> None:
     """
-    Зарегистрировать новую валюту в реестре.
+    Зарегистрировать новую валюту в реестре
     """
     _CURRENCY_REGISTRY[currency.code] = currency
 
 
 def get_supported_currencies() -> list[str]:
     """
-    Получить список кодов поддерживаемых валют.
+    Получить список кодов поддерживаемых валют
     """
     return sorted(_CURRENCY_REGISTRY.keys())
 
 
 def is_currency_supported(code: str) -> bool:
     """
-    Проверить, поддерживается ли валюта.
+    Проверить, поддерживается ли валюта
     """
     return code.strip().upper() in _CURRENCY_REGISTRY

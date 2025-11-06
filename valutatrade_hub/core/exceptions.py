@@ -4,7 +4,7 @@ class ValutaTradeError(Exception):
 
 class InsufficientFundsError(ValutaTradeError):
     """
-    Исключение при недостаточности средств на кошельке.
+    Исключение при недостаточности средств на кошельке
     """
 
     def __init__(self, available: float, required: float, currency_code: str):
@@ -20,7 +20,7 @@ class InsufficientFundsError(ValutaTradeError):
 
 class CurrencyNotFoundError(ValutaTradeError):
     """
-    Исключение при попытке использовать неизвестную валюту.
+    Исключение при попытке использовать неизвестную валюту
     """
 
     def __init__(self, currency_code: str):
@@ -34,7 +34,7 @@ class CurrencyNotFoundError(ValutaTradeError):
 
 class ApiRequestError(ValutaTradeError):
     """
-    Исключение при сбое обращения к внешнему API.
+    Исключение при сбое обращения к внешнему API
     """
 
     def __init__(self, reason: str):

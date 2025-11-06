@@ -2,7 +2,7 @@ install:
 	poetry install
 
 project:
-	poetry run project
+	poetry run valutatrade
 
 build:
 	poetry build

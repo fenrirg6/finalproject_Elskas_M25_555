@@ -142,7 +142,7 @@ def get_rate_info(from_currency: str, to_currency: str):
         info["is_direct"] = True
         return info
 
-    # обратный курс?
+    # обратный курс
     reverse_key = f"{to_currency}_{from_currency}"
     if reverse_key in rates:
         reverse_info = rates[reverse_key]
