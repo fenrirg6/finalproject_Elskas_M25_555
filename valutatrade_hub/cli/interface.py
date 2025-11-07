@@ -4,132 +4,150 @@ import sys
 sys.path.append('.')
 
 from valutatrade_hub.core import usecases
+from valutatrade_hub.core.currencies import FiatCurrency
 from valutatrade_hub.decorators import handle_command_errors
-from valutatrade_hub.core.currencies import get_currency, FiatCurrency, CryptoCurrency
+
 
 def create_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
-        prog='ValutaTrade Hub',
-        description='Платформа для управления виртуальным портфелем валют',
+        prog="ValutaTrade Hub",
+        description="Платформа для управления виртуальным портфелем валют",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    # создаём subпарсеры для команд
-    subparsers = parser.add_subparsers(dest='command', help='Доступные команды')
+    # создаем subпарсеры для команд
+    subparsers = parser.add_subparsers(dest="command", help="Доступные команды")
 
     # команда register
     register_parser = subparsers.add_parser(
-        'register',
-        help='Зарегистрировать нового пользователя'
+        "register",
+        help="Зарегистрировать нового пользователя"
     )
     register_parser.add_argument(
-        '--username',
+        "--username",
         required=True,
-        help='Имя пользователя (уникальное)'
+        help="Имя пользователя (уникальное)"
     )
     register_parser.add_argument(
-        '--password',
+        "--password",
         required=True,
-        help='Пароль (минимум 4 символа)'
+        help="Пароль (минимум 4 символа)"
     )
     # команда login
     login_parser = subparsers.add_parser(
-        'login',
-        help='Войти в систему'
+        "login",
+        help="Войти в систему"
     )
     login_parser.add_argument(
-        '--username',
+        "--username",
         required=True,
-        help='Имя пользователя'
+        help="Имя пользователя"
     )
     login_parser.add_argument(
-        '--password',
+        "--password",
         required=True,
-        help='Пароль'
+        help="Пароль"
     )
     # команда show-portfolio
     portfolio_parser = subparsers.add_parser(
-        'show-portfolio',
-        help='Показать портфель пользователя'
+        "show-portfolio",
+        help="Показать портфель пользователя"
     )
     portfolio_parser.add_argument(
-        '--base',
-        default='USD',
-        help='Базовая валюта для расчёта (по умолчанию USD)'
+        "--base",
+        default="USD",
+        help="Базовая валюта для расчета (по умолчанию USD)"
     )
     # команда buy
     buy_parser = subparsers.add_parser(
-        'buy',
-        help='Купить валюту'
+        "buy",
+        help="Купить валюту"
     )
     buy_parser.add_argument(
-        '--currency',
+        "--currency",
         required=True,
-        help='Код покупаемой валюты (например, BTC, EUR)'
+        help="Код покупаемой валюты (например, BTC, EUR)"
     )
     buy_parser.add_argument(
-        '--amount',
+        "--amount",
         required=True,
         type=float,
-        help='Количество валюты для покупки'
+        help="Количество валюты для покупки"
     )
     # команда sell
     sell_parser = subparsers.add_parser(
-        'sell',
-        help='Продать валюту'
+        "sell",
+        help="Продать валюту"
     )
     sell_parser.add_argument(
-        '--currency',
+        "--currency",
         required=True,
-        help='Код продаваемой валюты'
+        help="Код продаваемой валюты"
     )
     sell_parser.add_argument(
-        '--amount',
+        "--amount",
         required=True,
         type=float,
-        help='Количество валюты для продажи'
+        help="Количество валюты для продажи"
     )
     # команда get-rate
     rate_parser = subparsers.add_parser(
-        'get-rate',
-        help='Получить курс обмена валют'
+        "get-rate",
+        help="Получить курс обмена валют"
     )
     rate_parser.add_argument(
-        '--from',
-        dest='from_currency',
+        "--from",
+        dest="from_currency",
         required=True,
-        help='Исходная валюта'
+        help="Исходная валюта"
     )
     rate_parser.add_argument(
-        '--to',
-        dest='to_currency',
+        "--to",
+        dest="to_currency",
         required=True,
-        help='Целевая валюта'
+        help="Целевая валюта"
     )
     # Команда update-rates
     update_rates_parser = subparsers.add_parser(
-        'update-rates',
-        help='Обновить курсы валют из внешних API'
+        "update-rates",
+        help="Обновить курсы валют из внешних API"
     )
     update_rates_parser.add_argument(
-        '--source',
-        choices=['coingecko', 'exchangerate'],
-        help='Обновить только указанный источник'
+        "--source",
+        choices=["coingecko", "exchangerate"],
+        help="Обновить только указанный источник"
     )
     # Команда show-rates
     show_rates_parser = subparsers.add_parser(
-        'show-rates',
-        help='Показать актуальные курсы из кэша'
+        "show-rates",
+        help="Показать актуальные курсы из кэша"
     )
     show_rates_parser.add_argument(
-        '--currency',
-        help='Показать курс только для указанной валюты'
+        "--currency",
+        help="Показать курс только для указанной валюты"
     )
     show_rates_parser.add_argument(
-        '--top',
+        "--top",
         type=int,
-        help='Показать N самых дорогих валют'
+        help="Показать N самых дорогих валют"
+    )
+    # demo deposit
+    demo_parser = subparsers.add_parser(
+        'demo-deposit',
+        help='Тестовое пополнение счета (демо-режим)'
+    )
+    demo_parser.add_argument(
+        '--currency',
+        type=str,
+        default='USD',
+        help='Валюта для пополнения (по умолчанию: USD)'
+    )
+    demo_parser.add_argument(
+        '--amount',
+        type=float,
+        default=10000.0,
+        help='Сумма пополнения (по умолчанию: 10000.0)'
     )
 
     return parser
@@ -181,34 +199,34 @@ def handle_update_rates(args):
         result = updater.run_update(source_filter=args.source)
 
         print()
-        if result['success']:
-            print(f"Обновление успешно завершено!")
+        if result["success"]:
+            print("Обновление успешно завершено!")
         else:
-            print(f"Обновление завершено с ошибками")
+            print("Обновление завершено с ошибками")
 
         print(f"   Всего курсов обновлено: {result['total_rates']}")
         print(f"   Время выполнения: {result['duration']:.2f}с")
         print()
         print("По источникам:")
-        for source, count in result['by_source'].items():
+        for source, count in result["by_source"].items():
             status = "✓" if count > 0 else "✗"
             print(f"  {status} {source}: {count} курсов")
 
-        if result['errors']:
+        if result["errors"]:
             print()
             print("Ошибки:")
-            for error in result['errors']:
-                print(f"  ❌ {error}")
+            for error in result["errors"]:
+                print(f"  ✗ {error}")
 
         print()
-        print(f"Данные сохранены:")
-        print(f"   - Кэш: data/rates.json")
-        print(f"   - История: data/exchange_rates.json")
+        print("Данные сохранены:")
+        print("   - Кэш: data/rates.json")
+        print("   - История: data/exchange_rates.json")
 
-        return 0 if result['success'] else 1
+        return 0 if result["success"] else 1
 
     except Exception as e:
-        print(f"❌ Критическая ошибка: {e}")
+        print(f"✗ Критическая ошибка: {e}")
         print("   Проверьте logs/parser.log для подробностей")
         return 1
 
@@ -216,21 +234,21 @@ def handle_update_rates(args):
 def handle_show_rates(args):
     """Обработать команду show-rates"""
     try:
-        from valutatrade_hub.parser_service.storage import RatesStorage
         from valutatrade_hub.core.currencies import get_currency
         from valutatrade_hub.core.exceptions import CurrencyNotFoundError
+        from valutatrade_hub.parser_service.storage import RatesStorage
 
         storage = RatesStorage()
         data = storage.get_all_rates()
-        pairs = data.get('pairs', {})
-        last_refresh = data.get('last_refresh')
+        pairs = data.get("pairs", {})
+        last_refresh = data.get("last_refresh")
 
         if not pairs:
-            print("❌ Локальный кэш курсов пуст.")
+            print("✗ Локальный кэш курсов пуст.")
             print("Выполните 'update-rates' для загрузки данных.")
             return 1
 
-        print(f"Курсы валют из кэша")
+        print("Курсы валют из кэша")
         print(f"Последнее обновление: {last_refresh}")
         print()
 
@@ -245,14 +263,14 @@ def handle_show_rates(args):
             }
 
             if not filtered_pairs:
-                print(f"❌ Курсов для валюты '{args.currency}' не найдено.")
+                print(f"✗ Курсов для валюты '{args.currency}' не найдено.")
                 return 1
 
         # сортируем по значению для --top
         if args.top:
             sorted_pairs = sorted(
                 filtered_pairs.items(),
-                key=lambda item: item[1]['rate'],
+                key=lambda item: item[1]["rate"],
                 reverse=True
             )
             filtered_pairs = dict(sorted_pairs[:args.top])
@@ -265,9 +283,9 @@ def handle_show_rates(args):
         print("-" * 75)
 
         for pair_key, info in filtered_pairs.items():
-            rate = info['rate']
-            source = info['source']
-            updated = info['updated_at'][:19]  # обрезаем миллисекунды
+            rate = info["rate"]
+            source = info["source"]
+            updated = info["updated_at"][:19]  # обрезаем миллисекунды
 
             # добавляем информацию о валюте
             try:
@@ -286,9 +304,17 @@ def handle_show_rates(args):
         return 0
 
     except Exception as e:
-        print(f"❌ Ошибка отображения курсов: {e}")
+        print(f"✗ Ошибка отображения курсов: {e}")
         return 1
 
+@handle_command_errors
+def handle_demo_deposit(args):
+    """
+    Обработать команду demo-deposit
+    """
+    success, message = usecases.demo_deposit(args.currency, args.amount)
+    print(message)
+    return 0 if success else 1
 
 def run():
 
@@ -302,27 +328,29 @@ def run():
     args = parser.parse_args()
 
     # маршрутизация команд
-    if args.command == 'register':
+    if args.command == "register":
         return handle_register(args)
-    elif args.command == 'login':
+    elif args.command == "login":
         return handle_login(args)
-    elif args.command == 'show-portfolio':
+    elif args.command == "show-portfolio":
         return handle_show_portfolio(args)
-    elif args.command == 'buy':
+    elif args.command == "buy":
         return handle_buy(args)
-    elif args.command == 'sell':
+    elif args.command == "sell":
         return handle_sell(args)
-    elif args.command == 'get-rate':
+    elif args.command == "get-rate":
         return handle_get_rate(args)
-    elif args.command == 'update-rates':
+    elif args.command == "update-rates":
         return handle_update_rates(args)
-    elif args.command == 'show-rates':
+    elif args.command == "show-rates":
         return handle_show_rates(args)
+    elif args.command == "demo-deposit":
+        return handle_demo_deposit(args)
     else:
         parser.print_help()
         return 1
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(run())
 
 def run_interactive():
@@ -333,6 +361,7 @@ def run_interactive():
     print("\nИнтерактивный режим. Доступные команды:")
     print("  register --username <имя> --password <пароль>")
     print("  login --username <имя> --password <пароль>")
+    print("  demo-deposit --currency <валюта> --amount <сумма>")
     print("  show-portfolio [--base <валюта>]")
     print("  buy --currency <код> --amount <количество>")
     print("  sell --currency <код> --amount <количество>")
@@ -371,14 +400,15 @@ def run_interactive():
                 continue
 
             # обработка специальных команд
-            if command_line.lower() in ['exit', 'quit', 'q']:
-                print("\n До свидания!")
+            if command_line.lower() in ["exit", "quit", "q"]:
+                print("\nДо свидания!")
                 break
 
-            if command_line.lower() == 'help':
+            if command_line.lower() == "help":
                 print("\nДоступные команды:")
                 print("  register --username <имя> --password <пароль>")
                 print("  login --username <имя> --password <пароль>")
+                print("  demo-deposit --currency <валюта> --amount <сумма>")
                 print("  show-portfolio [--base <валюта>]")
                 print("  buy --currency <код> --amount <количество>")
                 print("  sell --currency <код> --amount <количество>")
@@ -390,9 +420,9 @@ def run_interactive():
                 print()
                 continue
 
-            if command_line.lower() == 'clear':
+            if command_line.lower() == "clear":
                 import os
-                os.system('clear' if os.name != 'nt' else 'cls')
+                os.system("clear" if os.name != "nt" else "cls")
                 continue
 
             # парсим и выполняем команду
@@ -403,22 +433,24 @@ def run_interactive():
                 args = parser.parse_args(args_list)
 
                 # маршрутизация команд
-                if args.command == 'register':
+                if args.command == "register":
                     handle_register(args)
-                elif args.command == 'login':
+                elif args.command == "login":
                     handle_login(args)
-                elif args.command == 'show-portfolio':
+                elif args.command == "show-portfolio":
                     handle_show_portfolio(args)
-                elif args.command == 'buy':
+                elif args.command == "buy":
                     handle_buy(args)
-                elif args.command == 'sell':
+                elif args.command == "sell":
                     handle_sell(args)
-                elif args.command == 'get-rate':
+                elif args.command == "get-rate":
                     handle_get_rate(args)
-                elif args.command == 'update-rates':
+                elif args.command == "update-rates":
                     handle_update_rates(args)
-                elif args.command == 'show-rates':
+                elif args.command == "show-rates":
                     handle_show_rates(args)
+                elif args.command == "demo-deposit":
+                    handle_demo_deposit(args)
                 else:
                     print("✗ Неизвестная команда. Введите 'help' для справки.")
 

@@ -1,7 +1,9 @@
-from .utils import generate_password_salt, hash_password, generate_timestamp
 from copy import deepcopy
-from typing import Optional, Dict
+from typing import Optional
+
 from valutatrade_hub.core.exceptions import InsufficientFundsError, ValidationError
+
+from .utils import generate_password_salt, generate_timestamp, hash_password
 
 
 class User:
@@ -12,8 +14,9 @@ class User:
                  hashed_password: Optional[str] = None,
                  salt: Optional[str] = None,
                  registration_date: Optional[str] = None):
+        """Инициализация экземпляра"""
         if not username or not username.strip():
-            raise ValueError("Имя пользователя не может быть пустым")
+            raise ValueError("✗ Имя пользователя не может быть пустым")
 
         self._user_id = user_id
         self._username = username
@@ -32,7 +35,8 @@ class User:
 
         # если не передан ни password, ни hashed_password
         else:
-            raise ValueError("Ошибка: необходимо передать либо password, либо hashed_password!")
+            raise ValueError("✗ Необходимо передать либо password," +
+                             " либо hashed_password")
 
     @property
     def user_id(self):
@@ -43,8 +47,7 @@ class User:
     def user_id(self, new_user_id):
         """Сеттер идентификатора пользователя"""
         if not isinstance(new_user_id, int):
-            raise ValueError("not int") # to change
-        old_user_id = self._user_id
+            raise ValueError("✗ Идентификатор пользователя не является целым числом")
         self._user_id = new_user_id
 
     @property
@@ -56,9 +59,9 @@ class User:
     def username(self, new_username):
         """Сеттер имени пользователя"""
         if not isinstance(new_username, str):
-            raise ValueError("not str") # to change
+            raise ValueError("✗ Имя пользователя не является строкой")
         if new_username.strip() == "":
-            raise ValueError("empty str")
+            raise ValueError("✗ Имя пользователя не может быть пустым")
         self._username = new_username.strip()
 
     @property
@@ -78,12 +81,13 @@ class User:
 
     def get_user_into(self):
         """Выводит информацию о пользователе"""
-        return f"'user_id': {self._user_id}, 'username': {self._username}, 'registration date': {self._registration_date}"
+        return (f"'user_id': {self._user_id}, 'username': {self._username}," +
+                f"'registration date': {self._registration_date}")
 
     def change_password(self, new_password: str):
         """Изменяет пароль пользователя с хешированием нового пароля"""
         if len(new_password) < 4:
-            raise ValueError("Ошибка: пароль не может быть короче 4-х символов.")
+            raise ValueError("✗ Пароль не может быть короче 4-х символов")
         self._salt = generate_password_salt()
         self._hashed_password = hash_password(self._salt, new_password)
 
@@ -117,7 +121,7 @@ class Wallet:
     """Базовый класс, определяющий кошелек в приложении"""
     def __init__(self, currency_code, balance):
         if not currency_code or not currency_code.strip():
-            raise ValueError("Ошибка: код валюты не может быть пустым.")
+            raise ValueError("✗ Код валюты не может быть пустым")
         self.currency_code = currency_code.upper().strip()
         self._balance = balance
 
@@ -130,23 +134,23 @@ class Wallet:
     def balance(self, new_balance):
         """Сеттер баланса"""
         if not isinstance(new_balance, (int, float)):
-            raise TypeError("Ошибка: баланс должен быть числом.")
+            raise TypeError("✗ Баланс должен быть числом")
         if new_balance < 0:
-            raise ValueError("Ошибка: баланс не может быть отрицательным.") # to change
+            raise ValueError("✗ Баланс не может быть отрицательным")
         self._balance = float(new_balance) # явно преобразуем
 
     def deposit(self, amount: float):
         """Метод для пополнения кошелька"""
         if not amount or not isinstance(amount, (int, float)):
-            raise TypeError("Ошибка: сумма пополнения должна быть числом.")
+            raise TypeError("✗ Сумма пополнения должна быть числом")
         if amount < 0:
-            raise ValueError("Ошибка: сумма пополнения должна быть положительным числом.")
+            raise ValueError("✗ Сумма пополнения должна быть положительным числом")
         self._balance += amount
 
     def withdraw(self, amount: float):
         """Метод для снятия средств с кошелька"""
         if not amount or not isinstance(amount, (int, float)) or (amount < 0):
-            raise ValidationError("Ошибка: сумма снятия должна быть положительным числом.")
+            raise ValidationError("✗ Сумма снятия должна быть положительным числом")
         if amount > self._balance:
             raise InsufficientFundsError(
                 available = self._balance,
@@ -196,14 +200,15 @@ class Portfolio:
         currency_code = currency_code.upper().strip()
 
         if currency_code in self._wallets:
-            raise ValueError(f"Кошелек {currency_code} уже существует в портфеле")
+            raise ValueError(f"✗ Кошелек {currency_code} уже существует в портфеле")
         else:
             new_wallet = Wallet(currency_code, 0.0)
             self._wallets[currency_code] = new_wallet
-            print(f"Кошелек {currency_code} добавлен в портфолио.")
+            print(f"✓ Кошелек {currency_code} добавлен в портфель")
             return new_wallet
 
-    def get_total_value(self, exchange_rates: dict[str, float], base_currency: str = "USD"):
+    def get_total_value(self, exchange_rates: dict[str, float],
+                        base_currency: str = "USD"):
         """Возвращает общую стоимость всех валют пользователя в указанной базовой валюте
         (по курсам, полученным из API или фиктивным данным) """
         if exchange_rates is None:

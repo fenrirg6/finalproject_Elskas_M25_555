@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
-from typing import Any, List, Dict, Optional
 from threading import Lock
+from typing import Any, Dict, List, Optional
 
 
 class DatabaseManager(metaclass=type):
@@ -40,7 +40,8 @@ class DatabaseManager(metaclass=type):
         # инициализируем пути
         self.data_dir = Path(settings.get("DATA_DIR", "data"))
         self.users_file = Path(settings.get("USERS_FILE", "data/users.json"))
-        self.portfolios_file = Path(settings.get("PORTFOLIOS_FILE", "data/portfolios.json"))
+        self.portfolios_file = Path(settings.get("PORTFOLIOS_FILE",
+                                                 "data/portfolios.json"))
         self.rates_file = Path(settings.get("RATES_FILE", "data/rates.json"))
 
         # кеш для минимизации чтения с диска
@@ -134,7 +135,7 @@ class DatabaseManager(metaclass=type):
 
     def update_user(self, user_data: dict) -> bool:
         """
-        Обновить или добавить пользователя.
+        Обновить или добавить пользователя
         """
         users = self.load_users()
 

@@ -1,5 +1,5 @@
-import time
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import Dict, Optional
 
@@ -8,7 +8,7 @@ import requests
 from valutatrade_hub.core.exceptions import ApiRequestError
 from valutatrade_hub.parser_service.config import ParserConfig, get_parser_config
 
-logger = logging.getLogger('valutatrade_hub.parser')
+logger = logging.getLogger("valutatrade_hub.parser")
 
 
 class BaseApiClient(ABC):
@@ -21,7 +21,7 @@ class BaseApiClient(ABC):
         self.config = config or get_parser_config()
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': self.config.USER_AGENT
+            "User-Agent": self.config.USER_AGENT
         })
 
     @abstractmethod
@@ -114,7 +114,8 @@ class CoinGeckoClient(BaseApiClient):
         """Получить курсы криптовалют из CoinGecko"""
         try:
             url = self.config.get_coingecko_url()
-            logger.info(f"Запрос к CoinGecko: {len(self.config.CRYPTO_CURRENCIES)} валют")
+            logger.info(f"Запрос к CoinGecko:"
+                        f"{len(self.config.CRYPTO_CURRENCIES)} валют")
 
             response = self._make_request(url)
             data = response.json()
@@ -204,7 +205,8 @@ class ExchangeRateApiClient(BaseApiClient):
                 rate_key = f"{currency_code}_{self.config.BASE_CURRENCY}"
                 rates[rate_key] = 1.0 / float(rate)
 
-                logger.debug(f"Добавлен курс: {currency_code}: {rate} → {rate_key}: {rates[rate_key]:.8f}")
+                logger.debug(f"Добавлен курс: {currency_code}: {rate}"
+                             f"→ {rate_key}: {rates[rate_key]:.8f}")
 
             if len(rates) == 0:
                 raise ApiRequestError(
@@ -220,4 +222,5 @@ class ExchangeRateApiClient(BaseApiClient):
             raise
         except Exception as e:
             logger.exception(f"Ошибка при парсинге ответа ExchangeRate-API: {str(e)}")
-            raise ApiRequestError(f"Ошибка при парсинге ответа ExchangeRate-API: {str(e)}")
+            raise ApiRequestError(f"Ошибка при парсинге ответа"
+                                  f"ExchangeRate-API: {str(e)}")

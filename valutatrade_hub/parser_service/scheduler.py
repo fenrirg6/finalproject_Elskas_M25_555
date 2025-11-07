@@ -5,12 +5,12 @@ from typing import Optional
 from valutatrade_hub.parser_service.config import ParserConfig, get_parser_config
 from valutatrade_hub.parser_service.updater import RatesUpdater
 
-logger = logging.getLogger('valutatrade_hub.parser')
+logger = logging.getLogger("valutatrade_hub.parser")
 
 
 class RatesScheduler:
     """
-    Планировщик периодического обновления курсов.
+    Планировщик периодического обновления курсов
     """
 
     def __init__(self,

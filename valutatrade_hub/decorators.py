@@ -1,13 +1,14 @@
 import functools
-from typing import Callable, Any
 from datetime import datetime
+from typing import Any, Callable
 
-from valutatrade_hub.core.exceptions import (
-    InsufficientFundsError,
-    CurrencyNotFoundError,
-    ApiRequestError
-)
 from valutatrade_hub.core.currencies import get_supported_currencies
+from valutatrade_hub.core.exceptions import (
+    ApiRequestError,
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+)
+
 
 def log_action(action_name: str = None, verbose: bool = False):
     """
@@ -55,7 +56,8 @@ def log_action(action_name: str = None, verbose: bool = False):
                 if isinstance(result, tuple) and len(result) >= 2:
                     success, message = result[0], result[1]
                     log_data["success"] = success
-                    log_data["response_message"] = message[:100] if message else None  # обрезка длинных сообщений
+                    # обрезка длинных сообщений
+                    log_data["response_message"] = message[:100] if message else None
 
                 # формирование сообщения для лога
                 log_message = f"{operation}"
@@ -82,7 +84,8 @@ def log_action(action_name: str = None, verbose: bool = False):
                     log_message += f" user='{log_data['username']}'"
                 if "currency_code" in log_data:
                     log_message += f" currency='{log_data['currency_code']}'"
-                log_message += f" result=ERROR error={log_data['error_type']}: {log_data['error_message']}"
+                log_message += (f" result=ERROR error={log_data['error_type']}:"
+                                f"{log_data['error_message']}")
 
                 logger.error(log_message, extra=log_data, exc_info=verbose)
 
@@ -100,15 +103,15 @@ def handle_command_errors(func):
         try:
             return func(args)
         except CurrencyNotFoundError as e:
-            print(f"❌ {e}")
+            print(f"✗ {e}")
             print(f"Поддерживаемые валюты: {', '.join(get_supported_currencies())}")
             return 1
         except InsufficientFundsError as e:
-            print(f"❌ {e}")
-            print("Пополните USD кошелёк или продайте другие валюты")
+            print(f"✗ {e}")
+            print("Пополните USD кошелек или продайте другие валюты")
             return 1
         except ApiRequestError as e:
-            print(f"❌ {e}")
+            print(f"✗ {e}")
             print("Повторите попытку позже или проверьте подключение к сети")
             return 1
     return wrapper

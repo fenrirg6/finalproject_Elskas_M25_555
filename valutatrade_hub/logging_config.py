@@ -28,7 +28,7 @@ def setup_logging(
     max_bytes = max_bytes or settings.get("LOG_MAX_BYTES", 10485760)
     backup_count = backup_count or settings.get('LOG_BACKUP_COUNT', 5)
 
-    # создаём директорию для логов
+    # создаем директорию для логов
     log_path = Path(log_file)
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -39,7 +39,7 @@ def setup_logging(
     # очищаем существующие обработчики
     logger.handlers.clear()
 
-    # создаём форматтер
+    # создаем форматтер
     formatter = logging.Formatter(
         fmt=log_format,
         datefmt="%Y-%m-%d %H:%M:%S"

@@ -98,7 +98,7 @@ class ParserConfig:
             warnings.warn(
                 "Используется демо-ключ для ExchangeRate-API. "
                 "Установите переменную окружения EXCHANGERATE_API_KEY "
-                "для полного доступа.",
+                "для полного доступа",
                 UserWarning
             )
 
@@ -122,10 +122,12 @@ class ParserConfig:
         """
         if crypto_ids is None:
             # используем все криптовалюты из конфига
-            crypto_ids = [self.CRYPTO_ID_MAP[ticker] for ticker in self.CRYPTO_CURRENCIES]
+            crypto_ids = [self.CRYPTO_ID_MAP[ticker] for
+                          ticker in self.CRYPTO_CURRENCIES]
 
         ids_str = ",".join(crypto_ids)
-        return f"{self.COINGECKO_URL}?ids={ids_str}&vs_currencies={self.BASE_CURRENCY.lower()}"
+        return (f"{self.COINGECKO_URL}?ids="
+                f"{ids_str}&vs_currencies={self.BASE_CURRENCY.lower()}")
 
     def get_crypto_id(self, ticker: str) -> str:
         """

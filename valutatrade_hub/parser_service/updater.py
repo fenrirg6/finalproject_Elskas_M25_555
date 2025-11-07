@@ -1,15 +1,15 @@
 import logging
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
-from datetime import datetime
 
 from valutatrade_hub.core.exceptions import ApiRequestError
-from valutatrade_hub.parser_service.config import ParserConfig, get_parser_config
 from valutatrade_hub.parser_service.api_clients import (
     BaseApiClient,
     CoinGeckoClient,
-    ExchangeRateApiClient
+    ExchangeRateApiClient,
 )
-from valutatrade_hub.parser_service.storage import RatesStorage, HistoryStorage
+from valutatrade_hub.parser_service.config import ParserConfig, get_parser_config
+from valutatrade_hub.parser_service.storage import HistoryStorage, RatesStorage
 
 logger = logging.getLogger("valutatrade_hub.parser")
 
@@ -55,10 +55,10 @@ class RatesUpdater:
         """
         logger.info("=" * 70)
         logger.info("Начинается обновление курсов валют")
-        logger.info(f"Время: {datetime.now().isoformat()}")
+        logger.info(f"Время: {datetime.now(timezone.utc).isoformat()}")
         logger.info("=" * 70)
 
-        start_time = datetime.now()
+        start_time = datetime.now(timezone.utc)
         all_rates = {}
         errors = []
         stats_by_source = {}
@@ -69,9 +69,11 @@ class RatesUpdater:
 
             # применяем фильтр источника
             if source_filter:
-                if source_filter.lower() == "coingecko" and "CoinGecko" not in source_name:
+                if (source_filter.lower() == "coingecko" and
+                        "CoinGecko" not in source_name):
                     continue
-                if source_filter.lower() == "exchangerate" and "ExchangeRate" not in source_name:
+                if (source_filter.lower() == "exchangerate" and
+                        "ExchangeRate" not in source_name):
                     continue
 
             try:
@@ -110,7 +112,7 @@ class RatesUpdater:
                 stats_by_source[source_name] = 0
 
         # подсчитываем статистику
-        duration = (datetime.now() - start_time).total_seconds()
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds()
         success = len(errors) == 0
 
         logger.info("=" * 70)

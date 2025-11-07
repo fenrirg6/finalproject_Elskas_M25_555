@@ -1,10 +1,9 @@
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
-from datetime import datetime
 from threading import Lock
-
+from typing import Dict, List, Optional
 
 logger = logging.getLogger("valutatrade_hub.parser")
 
@@ -31,13 +30,13 @@ class RatesStorage:
 
     def _read_data(self) -> dict:
         """
-        Прочитать данные из файла.
+        Прочитать данные из файла
         """
         try:
-            with open(self.file_path, 'r', encoding='utf-8') as f:
+            with open(self.file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except json.JSONDecodeError:
-            logger.warning(f"Файл {self.file_path} повреждён, создаём новый")
+            logger.warning(f"Файл {self.file_path} поврежден, создаем новый")
             return {"pairs": {}, "last_refresh": None}
         except Exception as e:
             logger.error(f"Ошибка чтения {self.file_path}: {e}")
@@ -48,10 +47,10 @@ class RatesStorage:
         Записать данные в файл атомарно
         """
         # атомарная запись через временный файл
-        temp_path = self.file_path.with_suffix('.tmp')
+        temp_path = self.file_path.with_suffix(".tmp")
 
         try:
-            with open(temp_path, 'w', encoding='utf-8') as f:
+            with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
 
             # атомарная замена
@@ -71,7 +70,7 @@ class RatesStorage:
             data = self._read_data()
             pairs = data.get("pairs", {})
 
-            timestamp = datetime.now().isoformat() + "Z"
+            timestamp = datetime.now(timezone.utc).isoformat()
 
             # обновляем каждую пару
             for pair_key, rate in rates.items():
@@ -121,7 +120,6 @@ class HistoryStorage:
     """
     Хранилище исторических данных (exchange_rates.json).
     Это полный журнал всех измерений курсов с уникальными ID.
-    Формат: список объектов с полями id, from_currency, to_currency, rate, timestamp, source, meta
     """
 
     def __init__(self, file_path: str = "data/exchange_rates.json"):
@@ -158,7 +156,7 @@ class HistoryStorage:
 
     def _write_data(self, data: List[dict]):
         """
-        Записать историю в файл атомарно.
+        Записать историю в файл атомарно
         """
         temp_path = self.file_path.with_suffix(".tmp")
 
@@ -183,7 +181,7 @@ class HistoryStorage:
             history = self._read_data()
 
             # генерируем timestamp и ID
-            timestamp = datetime.now().isoformat() + "Z"
+            timestamp = datetime.now(timezone.utc).isoformat()
             record_id = f"{from_currency}_{to_currency}_{timestamp}"
 
             # создаем запись
@@ -214,7 +212,7 @@ class HistoryStorage:
 
     def add_records_batch(self, records: List[dict]):
         """
-        Добавить несколько записей за раз батчами (может быть эффективнее на больших объемах)
+        Добавить несколько записей за раз батчами
         """
         with self._lock:
             history = self._read_data()
@@ -232,9 +230,10 @@ class HistoryStorage:
 
             logger.info(f"Добавлено {len(records)} записей в историю")
 
-    def _cleanup_old_records(self, history: List[dict], max_per_pair: int) -> List[dict]:
+    def _cleanup_old_records(self, history: List[dict],
+                             max_per_pair: int) -> List[dict]:
         """
-        Удалить старые записи, оставляя только max_per_pair последних для каждой пары.
+        Удалить старые записи, оставляя только max_per_pair последних для каждой пары
         """
         # группируем по парам
         pairs = {}
@@ -268,7 +267,8 @@ class HistoryStorage:
 
             # применяем фильтры
             if from_currency:
-                history = [r for r in history if r.get("from_currency") == from_currency]
+                history = [r for r in history if
+                           r.get("from_currency") == from_currency]
 
             if to_currency:
                 history = [r for r in history if r.get("to_currency") == to_currency]

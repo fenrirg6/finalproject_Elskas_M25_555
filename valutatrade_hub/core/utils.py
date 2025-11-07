@@ -2,6 +2,7 @@ import hashlib
 import os
 from datetime import datetime
 
+
 def format_number(value: float, decimals: int = 2):
     """Форматирование числа с разделителями"""
     return f"{value:,.{decimals}f}".replace(",", " ")

@@ -13,7 +13,7 @@ class InsufficientFundsError(ValutaTradeError):
         self.currency_code = currency_code
 
         message = (
-            f"Недостаточно средств: доступно {available:.4f} {currency_code}, "
+            f"✗ Недостаточно средств: доступно {available:.4f} {currency_code}, "
             f"требуется {required:.4f} {currency_code}"
         )
         super().__init__(message)
@@ -25,11 +25,10 @@ class CurrencyNotFoundError(ValutaTradeError):
 
     def __init__(self, currency_code: str):
         """
-        Args:
-            currency_code: неизвестный код валюты
+        Иницализация экземпляра
         """
         self.currency_code = currency_code
-        message = f"Неизвестная валюта '{currency_code}'"
+        message = f"✗ Неизвестная валюта '{currency_code}'"
         super().__init__(message)
 
 class ApiRequestError(ValutaTradeError):
@@ -39,11 +38,10 @@ class ApiRequestError(ValutaTradeError):
 
     def __init__(self, reason: str):
         """
-        Args:
-            reason: причина ошибки
+        Иницализация экземпляра
         """
         self.reason = reason
-        message = f"Ошибка при обращении к внешнему API: {reason}"
+        message = f"✗ Ошибка при обращении к внешнему API: {reason}"
         super().__init__(message)
 
 class AuthenticationError(ValutaTradeError):

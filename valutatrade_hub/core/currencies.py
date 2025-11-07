@@ -1,31 +1,33 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Optional
 
+
 class Currency(ABC):
     """
     Абстрактный базовый класс для всех типов валют.
-    Определяет общий интерфейс для фиатных и криптовалют.
+    Определяет общий интерфейс для фиатных и криптовалют
     """
 
     def __init__(self, code: str, name: str):
         # валидация кода
         if not code or not isinstance(code, str):
-            raise ValueError("Код валюты должен быть непустой строкой")
+            raise ValueError("✗ Код валюты должен быть непустой строкой")
 
         code = code.strip().upper()
         if len(code) < 2 or len(code) > 5:
-            raise ValueError(f"Код валюты должен быть длиной 2-5 символов, получено: '{code}'")
+            raise ValueError("✗ Код валюты должен быть длиной 2-5 символов,"
+                             + f"получено: '{code}'")
 
         if " " in code:
-            raise ValueError(f"Код валюты не может содержать пробелы: '{code}'")
+            raise ValueError(f"✗ Код валюты не может содержать пробелы: '{code}'")
 
         # валидация имени
         if not name or not isinstance(name, str):
-            raise ValueError("Имя валюты должно быть непустой строкой")
+            raise ValueError("✗ Имя валюты должно быть непустой строкой")
 
         name = name.strip()
         if not name:
-            raise ValueError("Имя валюты не может быть пустым")
+            raise ValueError("✗ Имя валюты не может быть пустым")
 
         self.code = code
         self.name = name
@@ -59,7 +61,7 @@ class FiatCurrency(Currency):
         super().__init__(code, name)
 
         if not issuing_country or not isinstance(issuing_country, str):
-            raise ValueError("Страна эмиссии должна быть непустой строкой")
+            raise ValueError("✗ Страна эмиссии должна быть непустой строкой")
 
         self.issuing_country = issuing_country.strip()
 
@@ -75,14 +77,15 @@ class CryptoCurrency(Currency):
     Криптовалюта
     """
 
-    def __init__(self, code: str, name: str, algorithm: str, market_cap: Optional[float] = None):
+    def __init__(self, code: str, name: str, algorithm: str,
+                 market_cap: Optional[float] = None):
         """
         Инициализация криптовалюты
         """
         super().__init__(code, name)
 
         if not algorithm or not isinstance(algorithm, str):
-            raise ValueError("Алгоритм должен быть непустой строкой")
+            raise ValueError("✗ Алгоритм должен быть непустой строкой")
 
         self.algorithm = algorithm.strip()
         self.market_cap = market_cap

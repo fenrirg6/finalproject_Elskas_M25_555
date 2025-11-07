@@ -9,11 +9,11 @@
 - scheduler: планировщик автоматического обновления
 """
 
-from .config import ParserConfig, get_parser_config
 from .api_clients import BaseApiClient, CoinGeckoClient, ExchangeRateApiClient
-from .storage import RatesStorage, HistoryStorage
-from .updater import RatesUpdater
+from .config import ParserConfig, get_parser_config
 from .scheduler import RatesScheduler
+from .storage import HistoryStorage, RatesStorage
+from .updater import RatesUpdater
 
 __all__ = [
     'ParserConfig',
